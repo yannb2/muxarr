@@ -225,6 +225,9 @@ public static class MediaFileExtensions
                 LanguageName = IsoLanguage.Find(language).Name,
                 Name = trackName,
                 AudioChannels = stream.Channels,
+                AudioFeature = type == MediaTrackType.Audio
+                    ? AudioFeatureExtensions.ParseAudioFeature(stream.Profile)
+                    : AudioFeature.None,
                 IsDefault = disposition.Default == 1,
                 IsForced = disposition.Forced == 1 || TrackNameFlags.ContainsForced(trackName),
                 IsHearingImpaired =
@@ -1042,7 +1045,7 @@ public static class MediaFileExtensions
             }
 
             var template = settings.ResolveTemplate(track);
-            track.Name = track.ApplyTrackNameTemplate(template);
+            track.Name = track.ApplyTrackNameTemplate(template, settings.CodecNames);
         }
     }
 
@@ -1154,7 +1157,8 @@ public static class MediaFileExtensions
         }
     }
 
-    public static string? ApplyTrackNameTemplate(this IMediaTrack track, string template)
+    public static string? ApplyTrackNameTemplate(this IMediaTrack track, string template,
+        IReadOnlyDictionary<string, string>? codecNames = null)
     {
         if (template.Length == 0)
         {
@@ -1169,7 +1173,9 @@ public static class MediaFileExtensions
             .Replace("{code}", ShortCode(iso, track), StringComparison.OrdinalIgnoreCase)
             .Replace("{nativelanguage}", iso.NativeName, StringComparison.OrdinalIgnoreCase)
             .Replace("{variant}", LanguageVariants.PreferredMarker(iso) ?? "", StringComparison.OrdinalIgnoreCase)
-            .Replace("{codec}", track.Codec.FormatCodec(), StringComparison.OrdinalIgnoreCase)
+            .Replace("{codec}", CodecNames.Resolve(track, codecNames), StringComparison.OrdinalIgnoreCase)
+            .Replace("{object}", track.AudioFeature.DisplayName(), StringComparison.OrdinalIgnoreCase)
+            .Replace("{description}", TrackDescription(track.Name), StringComparison.OrdinalIgnoreCase)
             .Replace("{channels}", track.GetChannelLayout() ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{trackname}", track.Name ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{hi}", track.IsHearingImpaired ? "SDH" : "", StringComparison.OrdinalIgnoreCase)
@@ -1183,6 +1189,32 @@ public static class MediaFileExtensions
         result = Regex.Replace(result, @"\s{2,}", " ").Trim();
 
         return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    // A name this template wrote on an earlier run wraps the description in the
+    // last brackets: "English - AC-3 2.0 (Commentary by John Carpenter)". Take
+    // only the bracket so a rerun does not nest it again. Only brackets that hold
+    // "comment" count, so "Commentary (Director)" is kept whole.
+    private static readonly Regex OwnDescriptionRegex = new(@"^.*? \((.*comment.*)\)$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    public static string TrackDescription(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "";
+        }
+
+        var match = OwnDescriptionRegex.Match(name.Trim());
+        var label = (match.Success ? match.Groups[1].Value : name).Trim();
+
+        // "(Commentary)" or "[Commentary]": drop the outer brackets only.
+        if (label.Length >= 2 && (label[0], label[^1]) is ('(', ')') or ('[', ']'))
+        {
+            label = label[1..^1].Trim();
+        }
+
+        return label;
     }
 
     // {code} favours the two-letter form (FR); languages without one fall back

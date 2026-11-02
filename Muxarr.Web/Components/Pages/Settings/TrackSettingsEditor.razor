@@ -183,11 +183,20 @@
                 {
                     <code>{channels}</code>
                     <text>,</text>
+                    <code>{object}</code>
+                    <text>,</text>
                 }
-                <code>{trackname}</code>,
+                <code>{trackname}</code>, <code>{description}</code>,
                 <code>{hi}</code>, <code>{forced}</code>, <code>{commentary}</code>, <code>{visualimpaired}</code>,
                 <code>{original}</code>, <code>{dub}</code>, <code>{flags}</code>.
                 <code>{code}</code> is the language code (FR-CA), <code>{variant}</code> the regional marker (VFQ).
+                @if (IsAudio)
+                {
+                    <text><code>{codec}</code> includes Atmos or DTS:X when the stream carries it; <code>{object}</code>
+                        is that layer alone.</text>
+                }
+                <code>{description}</code> is the current name without the part this template wrote, for keeping
+                "Commentary by ..." text across runs.
                 Leave empty to clear all track names.
             </small>
 
@@ -217,7 +226,7 @@
                         @foreach (var track in GetPreviewTracks())
                         {
                             var template = Settings.ResolveTemplate(track);
-                            var resolved = track.ApplyTrackNameTemplate(template);
+                            var resolved = track.ApplyTrackNameTemplate(template, Settings.CodecNames);
                             var isOverride = template != Settings.TrackNameTemplate;
                             <div>
                                 <code>@(resolved ?? "(empty)")</code>
@@ -259,6 +268,39 @@
                 <small class="text-muted d-block mt-2">Leave blank to use the default template. First matching flag
                     wins.</small>
             </div>
+
+            <div class="mt-3">
+                <a class="text-decoration-none small" data-bs-toggle="collapse"
+                   href="#@($"codecNames{TrackTypeLabel}")" role="button">
+                    <i class="bi bi-fonts me-1"></i>Codec names
+                </a>
+            </div>
+
+            <div class="collapse @(_hasCodecNames ? "show" : "")" id="@($"codecNames{TrackTypeLabel}")">
+                <div class="d-flex flex-column gap-2 mt-2 ms-2 border-start ps-3">
+                    @foreach (var label in CodecNames.Labels(TrackType))
+                    {
+                        var currentLabel = label;
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge text-bg-secondary text-truncate" style="width: 170px;"
+                                  title="@label">@label</span>
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   style="max-width: 300px;"
+                                   placeholder="@label"
+                                   value="@GetCodecName(currentLabel)"
+                                   @onchange="e => SetCodecName(currentLabel, e.Value?.ToString())"/>
+                        </div>
+                    }
+                </div>
+                <small class="text-muted d-block mt-2">What <code>{codec}</code> writes for each detected codec, for
+                    example "Dolby TrueHD" for TrueHD. Leave blank to keep the built-in name.
+                    @if (IsAudio)
+                    {
+                        <text>When an Atmos label is blank, its codec's name is used with "Atmos" added.</text>
+                    }
+                </small>
+            </div>
         </div>
     }
 </div>
@@ -292,7 +334,7 @@
         {
             var tracks = new List<TrackSnapshot>
             {
-                new() { Type = MediaTrackType.Audio, LanguageName = PreviewLanguage, Codec = "TrueHD", AudioChannels = 8, IsOriginal = true },
+                new() { Type = MediaTrackType.Audio, LanguageName = PreviewLanguage, Codec = "TrueHD", AudioChannels = 8, AudioFeature = AudioFeature.Atmos, IsOriginal = true },
                 new() { Type = MediaTrackType.Audio, LanguageName = PreviewLanguage, Codec = "E-AC-3", AudioChannels = 6 },
                 new() { Type = MediaTrackType.Audio, LanguageName = PreviewLanguage, Codec = "AAC", AudioChannels = 2, IsCommentary = true }
             };
@@ -331,6 +373,29 @@
     }
 
     private bool _hasOverrides => Settings.TrackNameOverrides.Any(kv => !string.IsNullOrEmpty(kv.Value));
+
+    private bool _hasCodecNames => Settings.CodecNames.Any(kv => !string.IsNullOrEmpty(kv.Value));
+
+    private string GetCodecName(string label)
+    {
+        var match = Settings.CodecNames.FirstOrDefault(kv => string.Equals(kv.Key, label, StringComparison.OrdinalIgnoreCase));
+        return match.Value ?? "";
+    }
+
+    private void SetCodecName(string label, string? value)
+    {
+        // Drop any differently-cased key first so one label never has two entries.
+        foreach (var key in Settings.CodecNames.Keys
+                     .Where(k => string.Equals(k, label, StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            Settings.CodecNames.Remove(key);
+        }
+
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            Settings.CodecNames[label] = value.Trim();
+        }
+    }
 
     private bool HasClearWarning =>
         Settings.StandardizeTrackNames && string.IsNullOrWhiteSpace(Settings.TrackNameTemplate);

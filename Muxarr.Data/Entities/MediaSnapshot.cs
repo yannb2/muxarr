@@ -47,6 +47,7 @@ public class TrackSnapshot : IMediaTrack
     public bool IsDub { get; set; }
     public string Codec { get; set; } = string.Empty;
     public int AudioChannels { get; set; }
+    public AudioFeature AudioFeature { get; set; }
     public string LanguageCode { get; set; } = string.Empty;
     public string LanguageName { get; set; } = string.Empty;
     public string? Name { get; set; } = string.Empty;
@@ -115,6 +116,10 @@ public class TrackSnapshotConfiguration : IEntityTypeConfiguration<TrackSnapshot
 
         builder.Property(e => e.Codec)
             .HasMaxLength(100);
+
+        builder.Property(e => e.AudioFeature)
+            .HasConversion<string>()
+            .HasMaxLength(20);
 
         builder.Property(e => e.LanguageCode)
             .HasMaxLength(20);
