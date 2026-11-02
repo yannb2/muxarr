@@ -612,9 +612,63 @@ public static class MediaFileExtensions
                     .ThenBy(t => t.Index)
                     .ToList();
             }
+            else if (s.ReorderStrategy == TrackReorderStrategy.CustomRules)
+            {
+                allowedTracks = OrderByRules(allowedTracks, s, originalLanguage);
+            }
         }
 
         return allowedTracks;
+    }
+
+    /// <summary>
+    /// Sorts by each of the profile's sort keys in turn, then by source order.
+    /// Lower sorts first for every key.
+    /// </summary>
+    public static List<T> OrderByRules<T>(List<T> tracks, TrackSettings s, string? originalLanguage)
+        where T : IMediaTrack
+    {
+        IOrderedEnumerable<T>? ordered = null;
+        foreach (var key in s.EffectiveSortKeys)
+        {
+            Func<T, int> rank = key switch
+            {
+                TrackSortKey.ForcedFirst => t => t.IsForced ? 0 : 1,
+                TrackSortKey.LanguagePriority => t => GetLanguagePriority(t.LanguageName, s, originalLanguage),
+                TrackSortKey.CodecOrder => t => CodecRank(t, s),
+                TrackSortKey.HearingImpairedLast => t => t.IsHearingImpaired ? 1 : 0,
+                TrackSortKey.CommentaryLast => t => t.IsCommentary ? 1 : 0,
+                TrackSortKey.BestQualityFirst => t => -(t.Type == MediaTrackType.Audio
+                    ? TrackQualityScorer.ScoreAudio(t)
+                    : TrackQualityScorer.ScoreSubtitle(t)),
+                _ => _ => 0
+            };
+
+            ordered = ordered == null ? tracks.OrderBy(rank) : ordered.ThenBy(rank);
+        }
+
+        return (ordered ?? tracks.OrderBy(_ => 0)).ThenBy(t => t.Index).ToList();
+    }
+
+    // Position in the profile's codec order. Codecs it does not list follow in
+    // their built-in order, so the editor's list is always the order applied.
+    private static int CodecRank(IMediaTrack track, TrackSettings s)
+    {
+        return track.Type == MediaTrackType.Audio
+            ? Rank(s.AudioCodecOrder, AudioCodecExtensions.SelectableValues, track.GetAudioCodec())
+            : Rank(s.SubtitleCodecOrder, SubtitleCodecExtensions.SelectableValues, track.GetSubtitleCodec());
+
+        static int Rank<TCodec>(List<TCodec> order, IReadOnlyList<TCodec> builtIn, TCodec codec)
+        {
+            var listed = order.IndexOf(codec);
+            if (listed >= 0)
+            {
+                return listed;
+            }
+
+            var index = builtIn.ToList().IndexOf(codec);
+            return order.Count + (index < 0 ? builtIn.Count : index);
+        }
     }
 
     // The language a track is filtered as. An untagged track is taken to be the
@@ -1403,6 +1457,7 @@ public static class MediaFileExtensions
     /// DontChange: no-op, preserve original flags.
     /// SpecCompliant: commentary/HI/VI/dub = not default, everything else = default.
     /// ForceFirstLanguage: only the first track matching the highest-priority language = default.
+    /// ForcedOnly (subtitles): non-forced tracks = not default, forced tracks untouched.
     /// </summary>
     private static void ReassignPreviewDefaultFlags(List<TrackSnapshot> previews, TrackSettings? settings,
         MediaTrackType trackType, string? originalLanguage)
@@ -1450,6 +1505,15 @@ public static class MediaFileExtensions
             foreach (var track in tracksOfType)
             {
                 track.IsDefault = !IsSupplementary(track);
+            }
+        }
+        else if (settings.DefaultStrategy == DefaultTrackStrategy.ForcedOnly
+                 && trackType == MediaTrackType.Subtitles)
+        {
+            // Forced tracks keep whatever flag they had; everything else is cleared.
+            foreach (var track in tracksOfType.Where(t => !t.IsForced))
+            {
+                track.IsDefault = false;
             }
         }
     }

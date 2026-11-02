@@ -107,6 +107,10 @@
                     disabled="@(!HasLanguagePriority)">
                 Always prefer first language@(!HasLanguagePriority ? " (set up allowed languages first)" : "")
             </option>
+            @if (!IsAudio)
+            {
+                <option value="@nameof(DefaultTrackStrategy.ForcedOnly)">Only forced subtitles can be default</option>
+            }
         </select>
         <small class="form-text text-muted d-block">
             @switch (Settings.DefaultStrategy)
@@ -119,6 +123,10 @@
                 case DefaultTrackStrategy.ForceFirstLanguage:
                     <text>Finds the best matching language based on your priority list and marks it as default. For
                         players without language settings.</text>
+                    break;
+                case DefaultTrackStrategy.ForcedOnly:
+                    <text>Clears the default flag on every subtitle that isn't forced. Forced subtitles keep their
+                        flag, so full subtitles never turn themselves on.</text>
                     break;
                 default:
                     <text>Original default flags from the source file are preserved.</text>
@@ -139,6 +147,7 @@
                     disabled="@(!HasLanguagePriority)">
                 Match language priority@(!HasLanguagePriority ? " (set up allowed languages first)" : "")
             </option>
+            <option value="@nameof(TrackReorderStrategy.CustomRules)">Custom rules</option>
         </select>
         <small class="form-text text-muted d-block">
             @switch (Settings.ReorderStrategy)
@@ -152,12 +161,68 @@
                         Tracks are sorted to match your priority list. Within a language the file's own order is kept.
                         Requires remux.</text>
                     break;
+                case TrackReorderStrategy.CustomRules:
+                    <text>Tracks are sorted by the rules below, top rule first. The file's own order breaks any
+                        remaining tie. Language priority uses the allowed languages list. Requires remux.</text>
+                    break;
                 default:
                     <text>Original track order from the source file is preserved.</text>
                     break;
             }
         </small>
     </div>
+
+    @if (Settings.ReorderStrategy == TrackReorderStrategy.CustomRules)
+    {
+        <div class="mb-3 ms-4 d-flex flex-wrap gap-4">
+            <div>
+                <div class="option-label text-muted small mb-1">Sort rules</div>
+                @{ var keys = Settings.EffectiveSortKeys.ToList(); }
+                @for (var i = 0; i < keys.Count; i++)
+                {
+                    var index = i;
+                    var key = keys[i];
+                    <div class="d-flex align-items-center gap-1 mb-1">
+                        <span class="badge text-bg-secondary" style="width: 150px;">@(index + 1). @key.DisplayName()</span>
+                        <button type="button" class="btn btn-sm btn-link p-0 px-1" disabled="@(index == 0)"
+                                title="Move up" @onclick="() => MoveSortKey(index, -1)"><i class="bi bi-arrow-up"></i></button>
+                        <button type="button" class="btn btn-sm btn-link p-0 px-1" disabled="@(index == keys.Count - 1)"
+                                title="Move down" @onclick="() => MoveSortKey(index, 1)"><i class="bi bi-arrow-down"></i></button>
+                        <button type="button" class="btn btn-sm btn-link p-0 px-1 text-danger" disabled="@(keys.Count == 1)"
+                                title="Remove" @onclick="() => RemoveSortKey(key)"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                }
+                @foreach (var unused in Enum.GetValues<TrackSortKey>().Except(keys))
+                {
+                    var missing = unused;
+                    <div class="d-flex align-items-center gap-1 mb-1">
+                        <span class="badge text-bg-light border text-muted" style="width: 150px;">@missing.DisplayName()</span>
+                        <button type="button" class="btn btn-sm btn-link p-0 px-1" title="Add"
+                                @onclick="() => AddSortKey(missing)"><i class="bi bi-plus-lg"></i></button>
+                    </div>
+                }
+            </div>
+
+            @if (Settings.EffectiveSortKeys.Contains(TrackSortKey.CodecOrder))
+            {
+                <div>
+                    <div class="option-label text-muted small mb-1">Codec order</div>
+                    @{ var codecs = CodecOrderRows; }
+                    @for (var i = 0; i < codecs.Count; i++)
+                    {
+                        var index = i;
+                        <div class="d-flex align-items-center gap-1 mb-1">
+                            <span class="badge text-bg-secondary" style="width: 150px;">@(index + 1). @codecs[index]</span>
+                            <button type="button" class="btn btn-sm btn-link p-0 px-1" disabled="@(index == 0)"
+                                    title="Move up" @onclick="() => MoveCodec(index, -1)"><i class="bi bi-arrow-up"></i></button>
+                            <button type="button" class="btn btn-sm btn-link p-0 px-1" disabled="@(index == codecs.Count - 1)"
+                                    title="Move down" @onclick="() => MoveCodec(index, 1)"><i class="bi bi-arrow-down"></i></button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
 
     @* --- Track Names --- *@
     <div class="mb-3 form-check form-switch">
@@ -373,6 +438,67 @@
     }
 
     private bool _hasOverrides => Settings.TrackNameOverrides.Any(kv => !string.IsNullOrEmpty(kv.Value));
+
+    private void MoveSortKey(int index, int delta)
+    {
+        var keys = Settings.EffectiveSortKeys.ToList();
+        var other = index + delta;
+        if (other < 0 || other >= keys.Count)
+        {
+            return;
+        }
+
+        (keys[index], keys[other]) = (keys[other], keys[index]);
+        Settings.SortKeys = keys;
+    }
+
+    private void RemoveSortKey(TrackSortKey key)
+    {
+        var keys = Settings.EffectiveSortKeys.Where(k => k != key).ToList();
+        if (keys.Count > 0)
+        {
+            Settings.SortKeys = keys;
+        }
+    }
+
+    private void AddSortKey(TrackSortKey key)
+    {
+        Settings.SortKeys = Settings.EffectiveSortKeys.Append(key).ToList();
+    }
+
+    // The codec list as it will be applied: the profile's order, then the rest in built-in order.
+    private List<string> CodecOrderRows => IsAudio
+        ? AudioOrder.Select(c => c.DisplayName()).ToList()
+        : SubtitleOrder.Select(c => c.DisplayName()).ToList();
+
+    private List<AudioCodec> AudioOrder => Settings.AudioCodecOrder
+        .Concat(AudioCodecExtensions.SelectableValues.Except(Settings.AudioCodecOrder)).ToList();
+
+    private List<SubtitleCodec> SubtitleOrder => Settings.SubtitleCodecOrder
+        .Concat(SubtitleCodecExtensions.SelectableValues.Except(Settings.SubtitleCodecOrder)).ToList();
+
+    private void MoveCodec(int index, int delta)
+    {
+        if (IsAudio)
+        {
+            Settings.AudioCodecOrder = Swap(AudioOrder, index, delta);
+        }
+        else
+        {
+            Settings.SubtitleCodecOrder = Swap(SubtitleOrder, index, delta);
+        }
+    }
+
+    private static List<T> Swap<T>(List<T> list, int index, int delta)
+    {
+        var other = index + delta;
+        if (other >= 0 && other < list.Count)
+        {
+            (list[index], list[other]) = (list[other], list[index]);
+        }
+
+        return list;
+    }
 
     private bool _hasCodecNames => Settings.CodecNames.Any(kv => !string.IsNullOrEmpty(kv.Value));
 
