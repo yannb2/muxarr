@@ -126,6 +126,13 @@ public class Profile : AuditableEntity
     public bool SkipHardlinkedFiles { get; set; }
     public TrackSettings AudioSettings { get; set; } = new();
     public TrackSettings SubtitleSettings { get; set; } = new();
+
+    /// <summary>
+    /// Video track naming. Only <see cref="TrackSettings.StandardizeTrackNames"/>,
+    /// <see cref="TrackSettings.TrackNameTemplate"/>, <see cref="TrackSettings.CodecNames"/>
+    /// and <see cref="TrackSettings.DolbyVisionTemplate"/> apply; a standardized name wins over <see cref="ClearVideoTrackNames"/>.
+    /// </summary>
+    public TrackSettings VideoSettings { get; set; } = new();
     public ICollection<MediaFile> MediaFiles { get; set; } = new List<MediaFile>();
 }
 
@@ -158,6 +165,13 @@ public class TrackSettings
     /// built-in name. Resolved by <see cref="Muxarr.Core.Extensions.CodecNames"/>.
     /// </summary>
     public Dictionary<string, string> CodecNames { get; set; } = new();
+
+    /// <summary>
+    /// Video only: what {dv} writes, with {dvprofile} and {dvlayer}. Empty uses
+    /// <see cref="Muxarr.Core.Extensions.HdrInfo.DefaultDolbyVisionTemplate"/>
+    /// ("Dolby Vision Profile 7 FEL").
+    /// </summary>
+    public string DolbyVisionTemplate { get; set; } = string.Empty;
 
     /// <summary>
     /// Sort steps for <see cref="TrackReorderStrategy.CustomRules"/>, first one wins.
@@ -248,6 +262,9 @@ public class ProfileConfiguration : AuditEntityConfiguration<Profile>
             .HasJsonConversion();
 
         builder.Property(e => e.SubtitleSettings)
+            .HasJsonConversion();
+
+        builder.Property(e => e.VideoSettings)
             .HasJsonConversion();
     }
 }

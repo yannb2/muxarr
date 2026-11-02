@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Muxarr.Core.DoviTool;
 using Muxarr.Core.Extensions;
 using Muxarr.Core.FFmpeg;
 using Muxarr.Core.Language;
@@ -100,6 +101,7 @@ public static class MediaFileExtensions
                 AudioChannels = x.Properties.AudioChannels,
                 Codec = CodecExtensions.ParseCodec(x.Codec),
                 Name = x.Properties.TrackName,
+                Resolution = x.Type.ToMediaTrackType() == MediaTrackType.Video ? x.Properties.PixelDimensions : null,
                 Index = x.Id
             };
 
@@ -228,6 +230,13 @@ public static class MediaFileExtensions
                 AudioFeature = type == MediaTrackType.Audio
                     ? AudioFeatureExtensions.ParseAudioFeature(stream.Profile)
                     : AudioFeature.None,
+                HdrFormat = type == MediaTrackType.Video ? HdrInfo.ParseHdrFormat(stream.ColorTransfer) : null,
+                DvProfile = type == MediaTrackType.Video
+                    ? HdrInfo.ParseDvProfile(HdrInfo.FindDoviRecord(stream.SideDataList))
+                    : null,
+                Resolution = type == MediaTrackType.Video && stream is { Width: > 0, Height: > 0 }
+                    ? $"{stream.Width}x{stream.Height}"
+                    : null,
                 IsDefault = disposition.Default == 1,
                 IsForced = disposition.Forced == 1 || TrackNameFlags.ContainsForced(trackName),
                 IsHearingImpaired =
@@ -243,6 +252,20 @@ public static class MediaFileExtensions
                 IsDub = (trustDispositionDub && disposition.Dub == 1) || TrackNameFlags.ContainsDub(trackName),
                 DurationMs = ParseTrackDurationMs(stream, family)
             };
+
+            // FEL vs MEL lives in the RPU, which only dovi_tool reads (Matroska only).
+            if (type == MediaTrackType.Video && family == ContainerFamily.Matroska
+                && HdrInfo.HasEnhancementLayer(HdrInfo.FindDoviRecord(stream.SideDataList)))
+            {
+                track.DvLayer = await DoviTool.GetEnhancementLayerType(file.Path);
+            }
+
+            // HDR10+ rides on HDR10 (PQ) as per-frame metadata the stream header
+            // does not show, so only PQ video pays for decoding a few frames.
+            if (track.HdrFormat == HdrInfo.Hdr10 && await FFmpeg.HasHdr10Plus(file.Path, stream.Index) == true)
+            {
+                track.HdrFormat = HdrInfo.Hdr10Plus;
+            }
 
             track.RefineLanguageFromName();
             tracks.Add(track);
@@ -1027,7 +1050,12 @@ public static class MediaFileExtensions
         {
             if (snapshot.Type == MediaTrackType.Video)
             {
-                if (profile.ClearVideoTrackNames)
+                if (standardizeNames && profile.VideoSettings is { StandardizeTrackNames: true } video)
+                {
+                    snapshot.Name = snapshot.ApplyTrackNameTemplate(video.TrackNameTemplate, video.CodecNames,
+                        video.DolbyVisionTemplate);
+                }
+                else if (profile.ClearVideoTrackNames)
                 {
                     snapshot.Name = null;
                 }
@@ -1212,7 +1240,7 @@ public static class MediaFileExtensions
     }
 
     public static string? ApplyTrackNameTemplate(this IMediaTrack track, string template,
-        IReadOnlyDictionary<string, string>? codecNames = null)
+        IReadOnlyDictionary<string, string>? codecNames = null, string? dolbyVisionTemplate = null)
     {
         if (template.Length == 0)
         {
@@ -1220,6 +1248,7 @@ public static class MediaFileExtensions
         }
 
         var iso = IsoLanguage.Find(track.LanguageName);
+        var dvLayer = CodecNames.Rename(track.DvLayer, codecNames);
 
         var result = template
             .Replace("{language}", track.LanguageName, StringComparison.OrdinalIgnoreCase)
@@ -1229,6 +1258,12 @@ public static class MediaFileExtensions
             .Replace("{variant}", LanguageVariants.PreferredMarker(iso) ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{codec}", CodecNames.Resolve(track, codecNames), StringComparison.OrdinalIgnoreCase)
             .Replace("{object}", track.AudioFeature.DisplayName(), StringComparison.OrdinalIgnoreCase)
+            .Replace("{hdr}", CodecNames.Rename(track.HdrFormat, codecNames), StringComparison.OrdinalIgnoreCase)
+            .Replace("{resolution}", ResolutionLabel.From(track.Resolution), StringComparison.OrdinalIgnoreCase)
+            .Replace("{dvprofile}", track.DvProfile ?? "", StringComparison.OrdinalIgnoreCase)
+            .Replace("{dvlayer}", dvLayer, StringComparison.OrdinalIgnoreCase)
+            .Replace("{dv}", HdrInfo.FormatDolbyVision(track.DvProfile, dvLayer, dolbyVisionTemplate),
+                StringComparison.OrdinalIgnoreCase)
             .Replace("{description}", TrackDescription(track.Name), StringComparison.OrdinalIgnoreCase)
             .Replace("{channels}", track.GetChannelLayout() ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{trackname}", track.Name ?? "", StringComparison.OrdinalIgnoreCase)
@@ -1376,7 +1411,9 @@ public static class MediaFileExtensions
                 // ClearVideoTrackNames means "strip the title". ApplyProfileMutations
                 // sets Name=null on the snapshot which would map to plan Name=null
                 // ("no opinion"). Switch to "" so the diff carries an explicit clear.
-                if (t.Type == MediaTrackType.Video && profile.ClearVideoTrackNames)
+                var videoNamed = t.Type == MediaTrackType.Video
+                                 && profile.VideoSettings is { StandardizeTrackNames: true };
+                if (t.Type == MediaTrackType.Video && (profile.ClearVideoTrackNames || videoNamed) && tt.Name == null)
                 {
                     tt.Name = "";
                 }

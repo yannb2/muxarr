@@ -12,6 +12,10 @@ public interface IMediaTrack
     string Codec { get; }
     int AudioChannels { get; }
     AudioFeature AudioFeature { get; }
+    string? HdrFormat { get; }
+    string? DvProfile { get; }
+    string? DvLayer { get; }
+    string? Resolution { get; }
     long DurationMs { get; }
     bool IsDefault { get; }
     bool IsForced { get; }

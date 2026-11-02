@@ -106,6 +106,68 @@
                                 text from video track names during conversion.</small>
                         </div>
                         <div class="mb-3 form-check form-switch">
+                            <InputCheckbox id="standardizeVideoNames" class="form-check-input"
+                                           @bind-Value="_profile.VideoSettings.StandardizeTrackNames"
+                                           @bind-Value:after="OnStandardizeVideoToggled"/>
+                            <label class="form-check-label" for="standardizeVideoNames">Standardize video track
+                                names</label>
+                            <small class="form-text text-muted d-block">Rename video tracks using a template, for
+                                example with the Dolby Vision profile. Wins over clearing the name.</small>
+                        </div>
+                        @if (_profile.VideoSettings.StandardizeTrackNames)
+                        {
+                            <div class="mb-3 ms-4">
+                                <div class="option-label text-muted small mb-1">Template</div>
+                                <InputText id="videoTrackNameTemplate" class="form-control form-control-sm"
+                                           @bind-Value="_profile.VideoSettings.TrackNameTemplate"/>
+                                <small class="form-text text-muted d-block">
+                                    Placeholders: <code>{codec}</code>, <code>{resolution}</code> (2160p, 1080p),
+                                    <code>{hdr}</code> (HDR10, HDR10+, HLG),
+                                    <code>{dv}</code> (Dolby Vision Profile 7 FEL), <code>{dvprofile}</code> (7, 8.1),
+                                    <code>{dvlayer}</code> (FEL, MEL), <code>{trackname}</code>.
+                                    FEL/MEL needs dovi_tool, which the image includes. Leave empty to clear video track
+                                    names.
+                                </small>
+                                <div class="mt-2 option-label text-muted small mb-1">Dolby Vision wording</div>
+                                <InputText id="videoDolbyVisionTemplate" class="form-control form-control-sm"
+                                           placeholder="@HdrInfo.DefaultDolbyVisionTemplate"
+                                           @bind-Value="_profile.VideoSettings.DolbyVisionTemplate"/>
+                                <small class="form-text text-muted d-block">
+                                    What <code>{dv}</code> writes, with <code>{dvprofile}</code> and
+                                    <code>{dvlayer}</code>. Empty uses
+                                    <code>@HdrInfo.DefaultDolbyVisionTemplate</code>; <code>DV P{dvprofile} {dvlayer}</code>
+                                    gives "DV P7 FEL". Rename HDR10, HDR10+, HLG, FEL and MEL in the list below.
+                                </small>
+                                <div class="mt-2 text-muted small">
+                                    <i class="bi bi-eye me-1"></i>Preview:
+                                    <div class="mt-1">
+                                        @foreach (var track in VideoPreviewTracks)
+                                        {
+                                            <div>
+                                                <code>@(track.ApplyTrackNameTemplate(_profile.VideoSettings.TrackNameTemplate, _profile.VideoSettings.CodecNames, _profile.VideoSettings.DolbyVisionTemplate) ?? "(empty)")</code>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="mt-3 option-label text-muted small mb-1">Codec and HDR names</div>
+                                <div class="d-flex flex-column gap-2 ms-2 border-start ps-3">
+                                    @foreach (var label in CodecNames.Labels(MediaTrackType.Video))
+                                    {
+                                        var currentLabel = label;
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge text-bg-secondary text-truncate" style="width: 170px;"
+                                                  title="@label">@label</span>
+                                            <input type="text" class="form-control form-control-sm"
+                                                   style="max-width: 300px;" placeholder="@label"
+                                                   value="@(_profile.VideoSettings.CodecNames.GetValueOrDefault(currentLabel) ?? "")"
+                                                   @onchange="e => SetVideoCodecName(currentLabel, e.Value?.ToString())"/>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        <div class="mb-3 form-check form-switch">
                             <InputCheckbox id="trimToVideoLength" class="form-check-input"
                                            @bind-Value="_profile.TrimToVideoLength"/>
                             <label class="form-check-label" for="trimToVideoLength">Trim all tracks to video
@@ -218,6 +280,7 @@
                 existing.SkipHardlinkedFiles = _profile.SkipHardlinkedFiles;
                 existing.AudioSettings = _profile.AudioSettings;
                 existing.SubtitleSettings = _profile.SubtitleSettings;
+                existing.VideoSettings = _profile.VideoSettings;
                 context.Update(existing);
             }
 
@@ -238,6 +301,40 @@
         else if (IsNew)
         {
             NavigationManager.NavigateTo($"/settings/profile/{_profile.Id}", replace: true);
+        }
+    }
+
+
+    private static readonly List<TrackSnapshot> VideoPreviewTracks =
+    [
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "7", DvLayer = HdrInfo.Fel, Resolution = "3840x2160" },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "8.1", Resolution = "3840x1600" },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10 },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Avc), Resolution = "1920x1080" }
+    ];
+
+    private void OnStandardizeVideoToggled()
+    {
+        if (_profile is { VideoSettings: { StandardizeTrackNames: true, TrackNameTemplate: "" } })
+        {
+            _profile.VideoSettings.TrackNameTemplate = "{codec} {dv} {hdr}";
+        }
+    }
+
+    private void SetVideoCodecName(string label, string? value)
+    {
+        if (_profile == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _profile.VideoSettings.CodecNames.Remove(label);
+        }
+        else
+        {
+            _profile.VideoSettings.CodecNames[label] = value.Trim();
         }
     }
 

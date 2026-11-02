@@ -16,6 +16,7 @@ public static class ProfileExtensions
         var clone = new Profile();
         clone.AudioSettings = profile.AudioSettings.LazyClone();
         clone.SubtitleSettings = profile.SubtitleSettings.LazyClone();
+        clone.VideoSettings = profile.VideoSettings.LazyClone();
         clone.Directories = profile.Directories.LazyClone();
         clone.Name = profile.Name;
         clone.Id = profile.Id;

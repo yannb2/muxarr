@@ -18,6 +18,8 @@ env:
     REGISTRY: ghcr.io
     IMAGE_NAME: ${{ github.repository }}
     FFMPEG_VERSION: '8.1'
+    MKVTOOLNIX_VERSION: '103.0'
+    DOVI_TOOL_VERSION: '2.3.4'
     DOTNET_VERSION: '10.0.x'
 
 jobs:
@@ -31,9 +33,23 @@ jobs:
             -   name: Checkout code
                 uses: actions/checkout@v7
 
-            -   name: Install mkvtoolnix (Linux)
+            # Same repo and version as the image, not Ubuntu's v82 from 2024.
+            -   name: Install mkvtoolnix ${{ env.MKVTOOLNIX_VERSION }} (Linux)
                 if: runner.os == 'Linux'
-                run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mkvtoolnix
+                run: |
+                    set -euo pipefail
+                    . /etc/os-release
+                    sudo curl -fsSL https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg -o /usr/share/keyrings/mkvtoolnix.gpg
+                    gpg --show-keys --with-colons /usr/share/keyrings/mkvtoolnix.gpg | grep -q '^fpr:::::::::D9199745B0545F2E8197062B0F92290A445B9007:'
+                    echo "deb [signed-by=/usr/share/keyrings/mkvtoolnix.gpg] https://mkvtoolnix.download/ubuntu/ ${VERSION_CODENAME} main" | sudo tee /etc/apt/sources.list.d/mkvtoolnix.list
+                    sudo apt-get update
+                    newest=$(apt-cache madison mkvtoolnix | awk -F'|' 'NR==1 {gsub(/ /, "", $2); print $2}')
+                    case "$newest" in
+                      "${MKVTOOLNIX_VERSION}"-*) ;;
+                      *) echo "::notice title=MKVToolNix update available::Pinned ${MKVTOOLNIX_VERSION}, repo has ${newest}" ;;
+                    esac
+                    sudo apt-get install -y --no-install-recommends "mkvtoolnix=${MKVTOOLNIX_VERSION}-*"
+                    mkvmerge --version
 
             -   name: Install ffmpeg ${{ env.FFMPEG_VERSION }} (Linux)
                 if: runner.os == 'Linux'
@@ -48,6 +64,21 @@ jobs:
                     curl -fsSL "$url" -o /tmp/ffmpeg.tar.xz
                     sudo tar -xJf /tmp/ffmpeg.tar.xz -C /usr/local/bin --strip-components=2 --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'
                     ffmpeg -version | head -1
+
+            # Same release the Docker image downloads, so a bad version or URL fails here first.
+            -   name: Install dovi_tool ${{ env.DOVI_TOOL_VERSION }} (Linux)
+                if: runner.os == 'Linux'
+                run: |
+                    set -euo pipefail
+                    case "$(uname -m)" in
+                      x86_64)  target=x86_64-unknown-linux-musl ;;
+                      aarch64) target=aarch64-unknown-linux-musl ;;
+                      *) echo "Unsupported arch: $(uname -m)" >&2; exit 1 ;;
+                    esac
+                    url="https://github.com/quietvoid/dovi_tool/releases/download/${DOVI_TOOL_VERSION}/dovi_tool-${DOVI_TOOL_VERSION}-${target}.tar.gz"
+                    curl -fsSL "$url" -o /tmp/dovi_tool.tar.gz
+                    sudo tar -xzf /tmp/dovi_tool.tar.gz -C /usr/local/bin
+                    dovi_tool --version
 
             -   name: Install mkvtoolnix + ffmpeg (macOS)
                 if: runner.os == 'macOS'
@@ -149,7 +180,10 @@ jobs:
                 with:
                     context: Muxarr.Web
                     platforms: ${{ matrix.platform }}
-                    build-args: FFMPEG_VERSION=${{ env.FFMPEG_VERSION }}
+                    build-args: |
+                        FFMPEG_VERSION=${{ env.FFMPEG_VERSION }}
+                        MKVTOOLNIX_VERSION=${{ env.MKVTOOLNIX_VERSION }}
+                        DOVI_TOOL_VERSION=${{ env.DOVI_TOOL_VERSION }}
                     labels: ${{ steps.meta.outputs.labels }}
                     outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
                     cache-from: type=gha,scope=${{ matrix.platform }}

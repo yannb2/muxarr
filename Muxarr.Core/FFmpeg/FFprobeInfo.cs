@@ -46,6 +46,15 @@ public class FFprobeStream
     [JsonPropertyName("bits_per_raw_sample")]
     public string? BitsPerRawSample { get; set; }
 
+    // Video transfer characteristics: smpte2084 (PQ, HDR10) or arib-std-b67 (HLG).
+    [JsonPropertyName("color_transfer")]
+    public string? ColorTransfer { get; set; }
+
+    // Stream-level side data. Dolby Vision files carry a "DOVI configuration
+    // record" here (the dvcC/dvvC box) with the profile and layer flags.
+    [JsonPropertyName("side_data_list")]
+    public List<FFprobeSideData>? SideDataList { get; set; }
+
     [JsonPropertyName("disposition")]
     public FFprobeDisposition? Disposition { get; set; }
 
@@ -56,6 +65,55 @@ public class FFprobeStream
     /// </summary>
     [JsonPropertyName("tags")]
     public Dictionary<string, string>? Tags { get; set; }
+}
+
+public class FFprobeSideData
+{
+    public const string DoviConfigurationRecord = "DOVI configuration record";
+
+    [JsonPropertyName("side_data_type")]
+    public string? SideDataType { get; set; }
+
+    [JsonPropertyName("dv_profile")]
+    public int? DvProfile { get; set; }
+
+    [JsonPropertyName("dv_level")]
+    public int? DvLevel { get; set; }
+
+    [JsonPropertyName("rpu_present_flag")]
+    public int? RpuPresentFlag { get; set; }
+
+    [JsonPropertyName("el_present_flag")]
+    public int? ElPresentFlag { get; set; }
+
+    [JsonPropertyName("bl_present_flag")]
+    public int? BlPresentFlag { get; set; }
+
+    [JsonPropertyName("dv_bl_signal_compatibility_id")]
+    public int? DvBlSignalCompatibilityId { get; set; }
+}
+
+// Output of `ffprobe -show_frames`: only the per-frame side data is read.
+public class FFprobeFramesResult
+{
+    [JsonPropertyName("frames")]
+    public List<FFprobeFrame> Frames { get; set; } = [];
+}
+
+public class FFprobeFrame
+{
+    [JsonPropertyName("side_data_list")]
+    public List<FFprobeFrameSideData>? SideDataList { get; set; }
+}
+
+public class FFprobeFrameSideData
+{
+    // HDR10+ is per-frame SMPTE ST 2094-40 metadata; ffprobe names it
+    // "HDR Dynamic Metadata SMPTE2094-40 (HDR10+)".
+    public const string Hdr10PlusMarker = "HDR10+";
+
+    [JsonPropertyName("side_data_type")]
+    public string? SideDataType { get; set; }
 }
 
 public class FFprobeDisposition

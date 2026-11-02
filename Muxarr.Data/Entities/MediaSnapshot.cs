@@ -25,7 +25,55 @@ public class MediaSnapshot : IMedia<TrackSnapshot>
     public bool HasChapters { get; set; }
     public bool HasAttachments { get; set; }
     public bool HasFaststart { get; set; }
-    public List<TrackSnapshot> Tracks { get; set; } = [];
+
+    // A stored snapshot is a probe, so its tracks are in source (Index) order,
+    // and the planner compares them position by position. SQL gives no row
+    // order without ORDER BY: SQLite picks among the four SnapshotId indexes by
+    // estimated cost, and adding columns can flip it to (SnapshotId, Type, ...)
+    // order. EF fills the field; reads of a loaded snapshot come back sorted.
+    // In-memory snapshots keep the order they were built in (custom reorders).
+    private List<TrackSnapshot> _tracks = [];
+    private bool _sortTracksOnRead;
+
+    public List<TrackSnapshot> Tracks
+    {
+        get
+        {
+            if (_sortTracksOnRead && !IsInIndexOrder(_tracks))
+            {
+                // Stable, and in place so EF keeps tracking the same list.
+                var sorted = _tracks.OrderBy(t => t.Index).ToList();
+                _tracks.Clear();
+                _tracks.AddRange(sorted);
+            }
+
+            return _tracks;
+        }
+        set
+        {
+            _tracks = value;
+            _sortTracksOnRead = false;
+        }
+    }
+
+    /// <summary>Called when EF materializes this snapshot from the database.</summary>
+    internal void MarkLoadedFromDatabase()
+    {
+        _sortTracksOnRead = true;
+    }
+
+    private static bool IsInIndexOrder(List<TrackSnapshot> tracks)
+    {
+        for (var i = 1; i < tracks.Count; i++)
+        {
+            if (tracks[i - 1].Index > tracks[i].Index)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 public class TrackSnapshot : IMediaTrack
@@ -48,6 +96,15 @@ public class TrackSnapshot : IMediaTrack
     public string Codec { get; set; } = string.Empty;
     public int AudioChannels { get; set; }
     public AudioFeature AudioFeature { get; set; }
+
+    // Video only. HDR10/HLG from the base layer (HDR10+ from frame metadata), Dolby Vision profile ("7",
+    // "8.1") from the DOVI record, FEL/MEL from dovi_tool. Null when absent.
+    public string? HdrFormat { get; set; }
+    public string? DvProfile { get; set; }
+    public string? DvLayer { get; set; }
+
+    // Video only: "3840x2160" from the stream; {resolution} writes it as "2160p".
+    public string? Resolution { get; set; }
     public string LanguageCode { get; set; } = string.Empty;
     public string LanguageName { get; set; } = string.Empty;
     public string? Name { get; set; } = string.Empty;
@@ -119,6 +176,18 @@ public class TrackSnapshotConfiguration : IEntityTypeConfiguration<TrackSnapshot
 
         builder.Property(e => e.AudioFeature)
             .HasConversion<string>()
+            .HasMaxLength(20);
+
+        builder.Property(e => e.HdrFormat)
+            .HasMaxLength(20);
+
+        builder.Property(e => e.DvProfile)
+            .HasMaxLength(10);
+
+        builder.Property(e => e.DvLayer)
+            .HasMaxLength(10);
+
+        builder.Property(e => e.Resolution)
             .HasMaxLength(20);
 
         builder.Property(e => e.LanguageCode)

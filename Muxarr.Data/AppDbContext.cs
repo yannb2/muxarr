@@ -23,6 +23,11 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     {
     }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.AddInterceptors(SnapshotLoadInterceptor.Instance);
+    }
+
     // Dates are stored in UTC, but SQLite loses the kind on read.
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
