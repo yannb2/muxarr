@@ -70,6 +70,18 @@
             <small class="form-text text-muted">Maximum time for a single file conversion. Set to 0 to disable.</small>
         </div>
 
+        <div class="mb-3">
+            <label for="scan-excluded" class="form-label">Excluded folders</label>
+            <InputTextArea id="scan-excluded" class="form-control font-monospace" rows="3"
+                           placeholder=".snapshots&#10;/movies/other/incoming"
+                           @bind-Value="ProcessingConfig.ExcludedFolders"/>
+            <small class="form-text text-muted">One per line. A name like <code>.snapshots</code> skips every folder
+                with that name, anywhere in the library; a full path skips only that folder. Files already in the
+                library under an excluded folder are removed at the end of the next scan. Recycle bins
+                (<code>.recycle</code>, <code>#recycle</code>, <code>$RECYCLE.BIN</code>), <code>.zfs</code>,
+                trailers and samples are always skipped.</small>
+        </div>
+
         <div class="mb-3 form-check form-switch">
             <InputCheckbox id="scan-queue" class="form-check-input" @bind-Value="ProcessingConfig.QueueScannedFiles"/>
             <label for="scan-queue" class="form-check-label">Queue new files found by a scan</label>

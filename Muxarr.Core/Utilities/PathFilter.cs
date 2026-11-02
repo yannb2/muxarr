@@ -41,6 +41,7 @@ public static class PathFilter
     {
         "@eaDir", // Synology
         "#recycle", // Synology
+        ".recycle", // Samba vfs_recycle
         "@Recycle", // QNAP
         ".@__thumb", // QNAP
         "$RECYCLE.BIN", // Windows
@@ -80,6 +81,71 @@ public static class PathFilter
 
         return false;
     }
+
+    /// <summary><see cref="ShouldIgnore(string)"/>, plus the user's own excluded folders.</summary>
+    public static bool ShouldIgnore(string filePath, IReadOnlyCollection<string>? excludedFolders)
+    {
+        return ShouldIgnore(filePath) || IsExcluded(filePath, excludedFolders);
+    }
+
+    /// <summary>
+    /// True when the file is under one of <paramref name="excludedFolders"/>. An entry
+    /// starting with a slash (or a drive letter) is a full path and excludes that folder
+    /// and everything below it; any other entry is a folder name, matched anywhere in
+    /// the path, ignoring case.
+    /// </summary>
+    public static bool IsExcluded(string filePath, IReadOnlyCollection<string>? excludedFolders)
+    {
+        if (excludedFolders is not { Count: > 0 })
+        {
+            return false;
+        }
+
+        var normalizedPath = NormalizePath(filePath);
+        var names = new List<string>();
+        foreach (var raw in excludedFolders)
+        {
+            var entry = NormalizePath(raw.Trim()).TrimEnd(Path.DirectorySeparatorChar);
+            if (entry.Length == 0)
+            {
+                continue;
+            }
+
+            if (IsFullPath(entry))
+            {
+                if (normalizedPath.StartsWith(entry + Path.DirectorySeparatorChar, PathComparison))
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                names.Add(entry);
+            }
+        }
+
+        return names.Count > 0 && ContainsDirectorySegment(normalizedPath, names.ToArray());
+    }
+
+    /// <summary>One entry per line; blank lines and lines starting with # are skipped.</summary>
+    public static List<string> ParseExcludedFolders(string? text)
+    {
+        return (text ?? string.Empty)
+            .Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0 && !l.StartsWith('#'))
+            .ToList();
+    }
+
+    private static bool IsFullPath(string entry)
+    {
+        return entry.StartsWith(Path.DirectorySeparatorChar)
+               || (entry.Length >= 2 && char.IsLetter(entry[0]) && entry[1] == ':');
+    }
+
+    private static StringComparison PathComparison => OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
 
     /// <summary>True for a file inside one of Jellyfin's extras folders (featurettes, deleted scenes, ...).</summary>
     public static bool IsExtra(string filePath)
