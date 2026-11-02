@@ -1124,6 +1124,35 @@ public static class MediaFileExtensions
         return false;
     }
 
+    /// <summary>
+    /// Sets a video track's language per <paramref name="mode"/>. A track already in
+    /// that language (any code for it, or a regional variant of it) is left alone,
+    /// and so is every track when the original language is unknown.
+    /// </summary>
+    public static void ApplyVideoLanguage(this TrackSnapshot track, VideoLanguageMode mode, string? originalLanguage)
+    {
+        var wanted = mode switch
+        {
+            VideoLanguageMode.OriginalLanguage when !string.IsNullOrWhiteSpace(originalLanguage) =>
+                IsoLanguage.Find(originalLanguage),
+            VideoLanguageMode.Undetermined => IsoLanguage.Find(IsoLanguage.UndeterminedName),
+            _ => null
+        };
+        if (wanted == null || wanted.Equals(IsoLanguage.Unknown) || wanted.WriteCode is not { } code)
+        {
+            return;
+        }
+
+        var current = IsoLanguage.Find(track.LanguageCode);
+        if (current.Equals(wanted) || (current.IsVariant && current.Base.Equals(wanted)))
+        {
+            return;
+        }
+
+        track.LanguageName = wanted.Name;
+        track.LanguageCode = code;
+    }
+
     private static void ApplyProfileMutations(List<TrackSnapshot> snapshots, Profile profile,
         int totalAudioTracks, int totalSubtitleTracks, string? originalLanguage, bool standardizeNames = true)
     {
@@ -1141,6 +1170,7 @@ public static class MediaFileExtensions
                     snapshot.Name = null;
                 }
 
+                snapshot.ApplyVideoLanguage(profile.VideoSettings.VideoLanguage, originalLanguage);
                 continue;
             }
 
