@@ -174,20 +174,25 @@
 
     @if (Settings.ReorderStrategy == TrackReorderStrategy.CustomRules)
     {
-        <div class="mb-3 ms-4 d-flex flex-wrap gap-4">
+        @* Firefox only starts a drag when dragstart sets some data; Blazor's event
+           args can't, so this plain handler on the wrapper does it as the event bubbles. *@
+        <div class="mb-3 ms-4 d-flex flex-wrap gap-4" ondragstart="event.dataTransfer.setData('text/plain', '')">
             <div>
-                <div class="option-label text-muted small mb-1">Sort rules</div>
+                <div class="option-label text-muted small mb-1">Sort rules <span class="fw-normal">(drag to reorder)</span></div>
                 @{ var keys = Settings.EffectiveSortKeys.ToList(); }
                 @for (var i = 0; i < keys.Count; i++)
                 {
                     var index = i;
                     var key = keys[i];
-                    <div class="d-flex align-items-center gap-1 mb-1">
+                    <div class="d-flex align-items-center gap-1 mb-1 @DropClass(DragList.SortKeys, index)" draggable="true"
+                         style="cursor: grab;"
+                         @ondragstart="() => StartDrag(DragList.SortKeys, index)"
+                         @ondragenter="() => _dragOver = index"
+                         @ondragover:preventDefault
+                         @ondrop="() => DropOn(DragList.SortKeys, index)"
+                         @ondragend="EndDrag">
+                        <i class="bi bi-grip-vertical text-muted"></i>
                         <span class="badge text-bg-secondary" style="width: 150px;">@(index + 1). @key.DisplayName()</span>
-                        <button type="button" class="btn btn-sm btn-link p-0 px-1" disabled="@(index == 0)"
-                                title="Move up" @onclick="() => MoveSortKey(index, -1)"><i class="bi bi-arrow-up"></i></button>
-                        <button type="button" class="btn btn-sm btn-link p-0 px-1" disabled="@(index == keys.Count - 1)"
-                                title="Move down" @onclick="() => MoveSortKey(index, 1)"><i class="bi bi-arrow-down"></i></button>
                         <button type="button" class="btn btn-sm btn-link p-0 px-1 text-danger" disabled="@(keys.Count == 1)"
                                 title="Remove" @onclick="() => RemoveSortKey(key)"><i class="bi bi-x-lg"></i></button>
                     </div>
@@ -206,17 +211,20 @@
             @if (Settings.EffectiveSortKeys.Contains(TrackSortKey.CodecOrder))
             {
                 <div>
-                    <div class="option-label text-muted small mb-1">Codec order</div>
+                    <div class="option-label text-muted small mb-1">Codec order <span class="fw-normal">(drag to reorder)</span></div>
                     @{ var codecs = CodecOrderRows; }
                     @for (var i = 0; i < codecs.Count; i++)
                     {
                         var index = i;
-                        <div class="d-flex align-items-center gap-1 mb-1">
-                            <span class="badge text-bg-secondary" style="width: 150px;">@(index + 1). @codecs[index]</span>
-                            <button type="button" class="btn btn-sm btn-link p-0 px-1" disabled="@(index == 0)"
-                                    title="Move up" @onclick="() => MoveCodec(index, -1)"><i class="bi bi-arrow-up"></i></button>
-                            <button type="button" class="btn btn-sm btn-link p-0 px-1" disabled="@(index == codecs.Count - 1)"
-                                    title="Move down" @onclick="() => MoveCodec(index, 1)"><i class="bi bi-arrow-down"></i></button>
+                        <div class="d-flex align-items-center gap-1 mb-1 @DropClass(DragList.Codecs, index)" draggable="true"
+                             style="cursor: grab;"
+                             @ondragstart="() => StartDrag(DragList.Codecs, index)"
+                             @ondragenter="() => _dragOver = index"
+                             @ondragover:preventDefault
+                             @ondrop="() => DropOn(DragList.Codecs, index)"
+                             @ondragend="EndDrag">
+                            <i class="bi bi-grip-vertical text-muted"></i>
+                            <span class="badge text-bg-secondary" style="width: 200px;">@(index + 1). @codecs[index]</span>
                         </div>
                     }
                 </div>
@@ -439,17 +447,66 @@
 
     private bool _hasOverrides => Settings.TrackNameOverrides.Any(kv => !string.IsNullOrEmpty(kv.Value));
 
-    private void MoveSortKey(int index, int delta)
+    private enum DragList
     {
-        var keys = Settings.EffectiveSortKeys.ToList();
-        var other = index + delta;
-        if (other < 0 || other >= keys.Count)
+        SortKeys,
+        Codecs
+    }
+
+    private DragList? _dragList;
+    private int _dragFrom = -1;
+    private int _dragOver = -1;
+
+    private void StartDrag(DragList list, int index)
+    {
+        _dragList = list;
+        _dragFrom = index;
+        _dragOver = index;
+    }
+
+    private void EndDrag()
+    {
+        _dragList = null;
+        _dragFrom = _dragOver = -1;
+    }
+
+    // Highlights the row a drag would land on.
+    private string DropClass(DragList list, int index)
+    {
+        return _dragList == list && _dragOver == index && _dragFrom != index ? "border-top border-primary border-2" : "";
+    }
+
+    private void DropOn(DragList list, int index)
+    {
+        if (_dragList != list || _dragFrom < 0 || _dragFrom == index)
         {
+            EndDrag();
             return;
         }
 
-        (keys[index], keys[other]) = (keys[other], keys[index]);
-        Settings.SortKeys = keys;
+        if (list == DragList.SortKeys)
+        {
+            Settings.SortKeys = Move(Settings.EffectiveSortKeys.ToList(), _dragFrom, index);
+        }
+        else if (IsAudio)
+        {
+            Settings.AudioCodecOrder = Move(AudioOrder, _dragFrom, index);
+        }
+        else
+        {
+            Settings.SubtitleCodecOrder = Move(SubtitleOrder, _dragFrom, index);
+        }
+
+        EndDrag();
+    }
+
+    // Takes the item out and puts it where the dropped-on row was.
+    private static List<T> Move<T>(List<T> list, int from, int to)
+    {
+        var item = list[from];
+        list.RemoveAt(from);
+        list.Insert(Math.Clamp(to, 0, list.Count), item);
+        return list;
     }
 
     private void RemoveSortKey(TrackSortKey key)
@@ -476,29 +533,6 @@
 
     private List<SubtitleCodec> SubtitleOrder => Settings.SubtitleCodecOrder
         .Concat(SubtitleCodecExtensions.SelectableValues.Except(Settings.SubtitleCodecOrder)).ToList();
-
-    private void MoveCodec(int index, int delta)
-    {
-        if (IsAudio)
-        {
-            Settings.AudioCodecOrder = Swap(AudioOrder, index, delta);
-        }
-        else
-        {
-            Settings.SubtitleCodecOrder = Swap(SubtitleOrder, index, delta);
-        }
-    }
-
-    private static List<T> Swap<T>(List<T> list, int index, int delta)
-    {
-        var other = index + delta;
-        if (other >= 0 && other < list.Count)
-        {
-            (list[index], list[other]) = (list[other], list[index]);
-        }
-
-        return list;
-    }
 
     private bool _hasCodecNames => Settings.CodecNames.Any(kv => !string.IsNullOrEmpty(kv.Value));
 

@@ -27,6 +27,7 @@ public class CustomConversionEditor
     {
         _file = file;
         _tracks = file.Snapshot.Tracks.Select(t => t.ToSnapshot()).ToList();
+        FileTitle = file.Snapshot.Title ?? "";
 
         // Start from raw file state: every track kept, no mutations applied.
         // ApplyProfile is how the user opts into a profile's rules.
@@ -47,6 +48,14 @@ public class CustomConversionEditor
     }
 
     public IReadOnlyList<TrackSnapshot> Tracks => _tracks;
+
+    /// <summary>
+    /// The container title to write. Starts as the file's own; empty clears it.
+    /// Only a change from the current title reaches the plan.
+    /// </summary>
+    public string FileTitle { get; set; } = "";
+
+    public string CurrentFileTitle => _file.Snapshot.Title ?? "";
 
     public IReadOnlyList<IsoLanguage> Languages { get; }
 
@@ -203,6 +212,14 @@ public class CustomConversionEditor
     {
         var video = _tracks.Where(t => t.Type == MediaTrackType.Video);
         var kept = _tracks.Where(t => t.Type != MediaTrackType.Video && _selected.Contains(t.Index));
-        return _file.BuildTargetFromCustom(video.Concat(kept).ToList());
+        var plan = _file.BuildTargetFromCustom(video.Concat(kept).ToList());
+
+        var title = FileTitle.Trim();
+        if (title != CurrentFileTitle)
+        {
+            plan.Title = title;
+        }
+
+        return plan;
     }
 }

@@ -13,6 +13,39 @@ namespace Muxarr.Tests;
 [TestClass]
 public class CustomConversionEditorTests
 {
+    // --- File title ---
+
+    [TestMethod]
+    public void FileTitle_UnchangedLeavesThePlanAlone()
+    {
+        var file = MakeFile("English", Video(0), Audio(1, "English"));
+        file.Snapshot.Title = "Some.Release.2160p";
+        var editor = new CustomConversionEditor(file);
+
+        Assert.AreEqual("Some.Release.2160p", editor.FileTitle);
+        Assert.IsNull(editor.Build().Title);
+    }
+
+    [TestMethod]
+    public void FileTitle_EditedIsWritten()
+    {
+        var file = MakeFile("English", Video(0), Audio(1, "English"));
+        file.Snapshot.Title = "Some.Release.2160p";
+        var editor = new CustomConversionEditor(file) { FileTitle = "  The Thing (1982)  " };
+
+        Assert.AreEqual("The Thing (1982)", editor.Build().Title);
+    }
+
+    [TestMethod]
+    public void FileTitle_EmptiedIsAnExplicitClear()
+    {
+        var file = MakeFile("English", Video(0), Audio(1, "English"));
+        file.Snapshot.Title = "Some.Release.2160p";
+        var editor = new CustomConversionEditor(file) { FileTitle = "" };
+
+        Assert.AreEqual("", editor.Build().Title);
+    }
+
     [TestMethod]
     public void ApplyProfile_KeepsWhatTheProfileKeepsAndTakesItsNames()
     {
