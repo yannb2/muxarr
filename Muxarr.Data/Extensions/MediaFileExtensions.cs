@@ -1048,7 +1048,8 @@ public static class MediaFileExtensions
             {
                 if (standardizeNames && profile.VideoSettings is { StandardizeTrackNames: true } video)
                 {
-                    snapshot.Name = snapshot.ApplyTrackNameTemplate(video.TrackNameTemplate, video.CodecNames);
+                    snapshot.Name = snapshot.ApplyTrackNameTemplate(video.TrackNameTemplate, video.CodecNames,
+                        video.DolbyVisionTemplate);
                 }
                 else if (profile.ClearVideoTrackNames)
                 {
@@ -1235,7 +1236,7 @@ public static class MediaFileExtensions
     }
 
     public static string? ApplyTrackNameTemplate(this IMediaTrack track, string template,
-        IReadOnlyDictionary<string, string>? codecNames = null)
+        IReadOnlyDictionary<string, string>? codecNames = null, string? dolbyVisionTemplate = null)
     {
         if (template.Length == 0)
         {
@@ -1243,6 +1244,7 @@ public static class MediaFileExtensions
         }
 
         var iso = IsoLanguage.Find(track.LanguageName);
+        var dvLayer = CodecNames.Rename(track.DvLayer, codecNames);
 
         var result = template
             .Replace("{language}", track.LanguageName, StringComparison.OrdinalIgnoreCase)
@@ -1252,10 +1254,11 @@ public static class MediaFileExtensions
             .Replace("{variant}", LanguageVariants.PreferredMarker(iso) ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{codec}", CodecNames.Resolve(track, codecNames), StringComparison.OrdinalIgnoreCase)
             .Replace("{object}", track.AudioFeature.DisplayName(), StringComparison.OrdinalIgnoreCase)
-            .Replace("{hdr}", track.HdrFormat ?? "", StringComparison.OrdinalIgnoreCase)
+            .Replace("{hdr}", CodecNames.Rename(track.HdrFormat, codecNames), StringComparison.OrdinalIgnoreCase)
             .Replace("{dvprofile}", track.DvProfile ?? "", StringComparison.OrdinalIgnoreCase)
-            .Replace("{dvlayer}", track.DvLayer ?? "", StringComparison.OrdinalIgnoreCase)
-            .Replace("{dv}", HdrInfo.FormatDolbyVision(track.DvProfile, track.DvLayer), StringComparison.OrdinalIgnoreCase)
+            .Replace("{dvlayer}", dvLayer, StringComparison.OrdinalIgnoreCase)
+            .Replace("{dv}", HdrInfo.FormatDolbyVision(track.DvProfile, dvLayer, dolbyVisionTemplate),
+                StringComparison.OrdinalIgnoreCase)
             .Replace("{description}", TrackDescription(track.Name), StringComparison.OrdinalIgnoreCase)
             .Replace("{channels}", track.GetChannelLayout() ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{trackname}", track.Name ?? "", StringComparison.OrdinalIgnoreCase)

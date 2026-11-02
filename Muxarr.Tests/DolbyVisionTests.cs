@@ -133,7 +133,7 @@ public class DolbyVisionTests
         var track = DvVideo("8.1", null);
         track.HdrFormat = HdrInfo.Hdr10Plus;
 
-        Assert.AreEqual("HEVC DV P8.1 HDR10+", track.ApplyTrackNameTemplate("{codec} {dv} {hdr}",
+        Assert.AreEqual("HEVC Dolby Vision Profile 8.1 HDR10+", track.ApplyTrackNameTemplate("{codec} {dv} {hdr}",
             new Dictionary<string, string> { ["H.265 / HEVC"] = "HEVC" }));
     }
 
@@ -149,13 +149,37 @@ public class DolbyVisionTests
     }
 
     [TestMethod]
-    [DataRow("7", "FEL", "DV P7 FEL")]
-    [DataRow("7", "", "DV P7")]
-    [DataRow("8.1", "", "DV P8.1")]
+    [DataRow("7", "FEL", "Dolby Vision Profile 7 FEL")]
+    [DataRow("7", "", "Dolby Vision Profile 7")]
+    [DataRow("8.1", "", "Dolby Vision Profile 8.1")]
     [DataRow("", "", "")]
-    public void FormatDolbyVision(string profile, string layer, string expected)
+    public void FormatDolbyVision_DefaultWording(string profile, string layer, string expected)
     {
         Assert.AreEqual(expected, HdrInfo.FormatDolbyVision(profile, layer));
+    }
+
+    [TestMethod]
+    [DataRow("7", "FEL", "DV P7 FEL")]
+    [DataRow("8.1", "", "DV P8.1")]
+    [DataRow("5", "", "DV P5")]
+    public void FormatDolbyVision_CustomWording(string profile, string layer, string expected)
+    {
+        Assert.AreEqual(expected, HdrInfo.FormatDolbyVision(profile, layer, "DV P{dvprofile} {dvlayer}"));
+    }
+
+    [TestMethod]
+    public void Template_RenamesHdrAndLayerLabels()
+    {
+        var track = DvVideo("7", HdrInfo.Fel);
+        var names = new Dictionary<string, string>
+        {
+            ["H.265 / HEVC"] = "HEVC",
+            ["FEL"] = "Full Enhancement Layer",
+            ["HDR10"] = "HDR"
+        };
+
+        Assert.AreEqual("HEVC DoVi 7 Full Enhancement Layer HDR",
+            track.ApplyTrackNameTemplate("{codec} {dv} {hdr}", names, "DoVi {dvprofile} {dvlayer}"));
     }
 
     // --- Video track names ---
@@ -166,7 +190,7 @@ public class DolbyVisionTests
         var track = DvVideo("7", HdrInfo.Fel);
         var names = new Dictionary<string, string> { ["H.265 / HEVC"] = "HEVC" };
 
-        Assert.AreEqual("HEVC DV P7 FEL HDR10", track.ApplyTrackNameTemplate("{codec} {dv} {hdr}", names));
+        Assert.AreEqual("HEVC Dolby Vision Profile 7 FEL HDR10", track.ApplyTrackNameTemplate("{codec} {dv} {hdr}", names));
         Assert.AreEqual("7 FEL", track.ApplyTrackNameTemplate("{dvprofile} {dvlayer}"));
     }
 
@@ -189,6 +213,7 @@ public class DolbyVisionTests
             {
                 StandardizeTrackNames = true,
                 TrackNameTemplate = "{codec} {dv} {hdr}",
+                DolbyVisionTemplate = "DV P{dvprofile} {dvlayer}",
                 CodecNames = new Dictionary<string, string> { ["H.265 / HEVC"] = "HEVC" }
             },
             AudioSettings = new TrackSettings(),

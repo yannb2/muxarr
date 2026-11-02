@@ -95,14 +95,27 @@ public static partial class HdrInfo
         return types.Contains(Mel, StringComparison.OrdinalIgnoreCase) ? Mel : null;
     }
 
-    /// <summary>"DV P7 FEL", "DV P8.1", "DV P5", or "" when the track has no Dolby Vision.</summary>
-    public static string FormatDolbyVision(string? dvProfile, string? dvLayer)
+    /// <summary>Default wording for {dv}: "Dolby Vision Profile 7 FEL", "Dolby Vision Profile 8.1".</summary>
+    public const string DefaultDolbyVisionTemplate = "Dolby Vision Profile {dvprofile} {dvlayer}";
+
+    /// <summary>
+    /// The {dv} words for a track, from a template with {dvprofile} and
+    /// {dvlayer} ("DV P{dvprofile} {dvlayer}" gives "DV P7 FEL"). Empty when
+    /// the track has no Dolby Vision.
+    /// </summary>
+    public static string FormatDolbyVision(string? dvProfile, string? dvLayer, string? template = null)
     {
         if (string.IsNullOrEmpty(dvProfile))
         {
             return "";
         }
 
-        return string.IsNullOrEmpty(dvLayer) ? $"DV P{dvProfile}" : $"DV P{dvProfile} {dvLayer}";
+        var text = (string.IsNullOrWhiteSpace(template) ? DefaultDolbyVisionTemplate : template)
+            .Replace("{dvprofile}", dvProfile, StringComparison.OrdinalIgnoreCase)
+            .Replace("{dvlayer}", dvLayer ?? "", StringComparison.OrdinalIgnoreCase);
+        return WhitespaceRegex().Replace(text, " ").Trim();
     }
+
+    [GeneratedRegex(@"\s{2,}")]
+    private static partial Regex WhitespaceRegex();
 }

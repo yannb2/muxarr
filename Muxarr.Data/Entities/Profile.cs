@@ -129,8 +129,8 @@ public class Profile : AuditableEntity
 
     /// <summary>
     /// Video track naming. Only <see cref="TrackSettings.StandardizeTrackNames"/>,
-    /// <see cref="TrackSettings.TrackNameTemplate"/> and <see cref="TrackSettings.CodecNames"/>
-    /// apply; a standardized name wins over <see cref="ClearVideoTrackNames"/>.
+    /// <see cref="TrackSettings.TrackNameTemplate"/>, <see cref="TrackSettings.CodecNames"/>
+    /// and <see cref="TrackSettings.DolbyVisionTemplate"/> apply; a standardized name wins over <see cref="ClearVideoTrackNames"/>.
     /// </summary>
     public TrackSettings VideoSettings { get; set; } = new();
     public ICollection<MediaFile> MediaFiles { get; set; } = new List<MediaFile>();
@@ -165,6 +165,13 @@ public class TrackSettings
     /// built-in name. Resolved by <see cref="Muxarr.Core.Extensions.CodecNames"/>.
     /// </summary>
     public Dictionary<string, string> CodecNames { get; set; } = new();
+
+    /// <summary>
+    /// Video only: what {dv} writes, with {dvprofile} and {dvlayer}. Empty uses
+    /// <see cref="Muxarr.Core.Extensions.HdrInfo.DefaultDolbyVisionTemplate"/>
+    /// ("Dolby Vision Profile 7 FEL").
+    /// </summary>
+    public string DolbyVisionTemplate { get; set; } = string.Empty;
 
     /// <summary>
     /// Sort steps for <see cref="TrackReorderStrategy.CustomRules"/>, first one wins.

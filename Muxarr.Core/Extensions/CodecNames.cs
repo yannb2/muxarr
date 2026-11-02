@@ -65,12 +65,31 @@ public static class CodecNames
             MediaTrackType.Video => Enum.GetValues<VideoCodec>()
                 .Where(c => c != VideoCodec.Unknown)
                 .Select(c => c.DisplayName())
+                .Concat(VideoFeatureLabels)
                 .ToList(),
             MediaTrackType.Subtitles => SubtitleCodecExtensions.SelectableValues
                 .Select(c => c.DisplayName())
                 .ToList(),
             _ => []
         };
+    }
+
+    /// <summary>
+    /// HDR formats and Dolby Vision layers, renamable like codecs: {hdr} and
+    /// {dvlayer} (also inside the Dolby Vision wording) write the custom name.
+    /// </summary>
+    public static readonly IReadOnlyList<string> VideoFeatureLabels =
+        [HdrInfo.Hdr10, HdrInfo.Hdr10Plus, HdrInfo.Hlg, HdrInfo.Fel, HdrInfo.Mel];
+
+    /// <summary>A custom name for a single label, or the label itself ("" for null).</summary>
+    public static string Rename(string? label, IReadOnlyDictionary<string, string>? customNames)
+    {
+        if (string.IsNullOrEmpty(label))
+        {
+            return "";
+        }
+
+        return customNames != null && TryGet(customNames, label, out var custom) ? custom : label;
     }
 
     private static IEnumerable<string> AudioLabels(AudioCodec codec)
