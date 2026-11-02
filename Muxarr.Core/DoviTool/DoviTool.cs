@@ -23,10 +23,11 @@ public static class DoviTool
     public static async Task<string?> GetEnhancementLayerType(string file, TimeSpan? timeout = null)
     {
         var rpu = Path.Combine(Path.GetTempPath(), $"muxarr-{Guid.NewGuid():N}.rpu");
+        var link = HasMatroskaExtension(file) ? null : LinkAsMatroska(file);
         try
         {
             var extract = await ProcessExecutor.ExecuteProcessAsync(Executable,
-                argumentList: ["extract-rpu", "--limit", SampleFrames.ToString(), "-o", rpu, file],
+                argumentList: ["extract-rpu", "--limit", SampleFrames.ToString(), "-o", rpu, link ?? file],
                 timeout: timeout ?? TimeSpan.FromMinutes(5));
             if (!extract.Success || !File.Exists(rpu))
             {
@@ -49,10 +50,41 @@ public static class DoviTool
             try
             {
                 File.Delete(rpu);
+                if (link != null)
+                {
+                    File.Delete(link);
+                }
             }
             catch (IOException)
             {
             }
+        }
+    }
+
+    // dovi_tool picks its demuxer from the file extension and reads anything
+    // that isn't .mkv as a raw HEVC stream, which finds no RPU in a Matroska
+    // file. Muxarr's conversion output is "<name>.mkv.muxtmp" until the swap.
+    public static bool HasMatroskaExtension(string file)
+    {
+        return string.Equals(Path.GetExtension(file), ".mkv", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// A symbolic link named *.mkv in the temp folder pointing at <paramref name="file"/>,
+    /// so dovi_tool reads it as Matroska. Null when links can't be made (Windows
+    /// without the privilege); dovi_tool then gets the file itself.
+    /// </summary>
+    public static string? LinkAsMatroska(string file)
+    {
+        var link = Path.Combine(Path.GetTempPath(), $"muxarr-{Guid.NewGuid():N}.mkv");
+        try
+        {
+            File.CreateSymbolicLink(link, Path.GetFullPath(file));
+            return link;
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 
