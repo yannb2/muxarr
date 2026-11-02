@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Muxarr.Core.Extensions;
 using Muxarr.Core.Models;
+using Muxarr.Data.Extensions;
 
 namespace Muxarr.Data.Entities;
 
@@ -25,6 +26,10 @@ public class MediaSnapshot : IMedia<TrackSnapshot>
     public bool HasChapters { get; set; }
     public bool HasAttachments { get; set; }
     public bool HasFaststart { get; set; }
+
+    // Chapter starts and titles from ffprobe. Empty for snapshots taken before
+    // chapters were listed, even when HasChapters says there are some.
+    public List<ChapterInfo> Chapters { get; set; } = [];
 
     // A stored snapshot is a probe, so its tracks are in source (Index) order,
     // and the planner compares them position by position. SQL gives no row
@@ -147,6 +152,9 @@ public class MediaSnapshotConfiguration : IEntityTypeConfiguration<MediaSnapshot
 
         builder.Property(e => e.HasFaststart)
             .IsRequired();
+
+        builder.Property(e => e.Chapters)
+            .HasJsonConversion();
 
         builder.Property(e => e.TrackCount)
             .IsRequired();

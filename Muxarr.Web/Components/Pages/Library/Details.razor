@@ -158,6 +158,52 @@
             </div>
         </div>
 
+        @if (File.Snapshot.HasChapters)
+        {
+            <div class="col-12">
+                <div class="border rounded p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-bookmarks text-primary me-2"></i>
+                        <h5 class="mb-0">Chapters</h5>
+                        @if (File.Snapshot.Chapters.Count > 0)
+                        {
+                            <span class="badge text-bg-light border ms-2">@File.Snapshot.Chapters.Count</span>
+                        }
+                    </div>
+                    @if (File.Snapshot.Chapters.Count == 0)
+                    {
+                        <span class="text-muted">This file has chapters. Rescan it to list them.</span>
+                    }
+                    else
+                    {
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                <tr>
+                                    <th style="width: 35px;">#</th>
+                                    <th style="width: 110px;">Start</th>
+                                    <th>Title</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                @for (var i = 0; i < File.Snapshot.Chapters.Count; i++)
+                                {
+                                    var chapter = File.Snapshot.Chapters[i];
+                                    <tr>
+                                        <td>@(i + 1)</td>
+                                        <td class="text-muted">@ChapterInfo.FormatTime(chapter.StartMs)</td>
+                                        <td class="text-break">@(chapter.Title ?? "(no title)")</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted d-block mt-2">Rename them in a custom conversion.</small>
+                    }
+                </div>
+            </div>
+        }
+
         @if (File.OriginalTrackNames is { Tracks.Count: > 0 } backup)
         {
             <div class="col-12">

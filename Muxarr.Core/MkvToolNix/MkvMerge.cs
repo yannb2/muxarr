@@ -72,6 +72,11 @@ public static class MkvMerge
         {
             command += " --no-chapters";
         }
+        else if (delta.ChaptersFile != null)
+        {
+            // The renamed copy replaces the source's chapters rather than adding to them.
+            command += $" --chapters \"{delta.ChaptersFile}\" --no-chapters";
+        }
 
         if (delta.HasAttachments == false)
         {

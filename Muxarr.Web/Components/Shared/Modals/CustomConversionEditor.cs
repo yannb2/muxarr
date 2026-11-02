@@ -1,3 +1,4 @@
+using Muxarr.Core.Extensions;
 using Muxarr.Core.Language;
 using Muxarr.Core.Models;
 using Muxarr.Core.MkvToolNix;
@@ -29,6 +30,9 @@ public class CustomConversionEditor
         _tracks = file.Snapshot.Tracks.Select(t => t.ToSnapshot()).ToList();
         _tracks.AttachOriginalNames(file.OriginalTrackNames, file.Snapshot.Tracks);
         FileTitle = file.Snapshot.Title ?? "";
+        Chapters = file.Snapshot.Chapters
+            .Select(c => new ChapterEdit(c.StartMs, c.Title ?? "", c.Title ?? ""))
+            .ToList();
 
         // Start from raw file state: every track kept, no mutations applied.
         // ApplyProfile is how the user opts into a profile's rules.
@@ -57,6 +61,39 @@ public class CustomConversionEditor
     public string FileTitle { get; set; } = "";
 
     public string CurrentFileTitle => _file.Snapshot.Title ?? "";
+
+    /// <summary>One chapter's title as the file has it and as the user wants it.</summary>
+    public sealed class ChapterEdit(long startMs, string current, string title)
+    {
+        public long StartMs { get; } = startMs;
+        public string Current { get; } = current;
+        public string Title { get; set; } = title;
+        public bool IsChanged => !string.IsNullOrWhiteSpace(Title) && Title.Trim() != Current;
+    }
+
+    /// <summary>The file's chapters with editable titles. Only Matroska files can have them renamed.</summary>
+    public List<ChapterEdit> Chapters { get; }
+
+    public bool CanRenameChapters =>
+        Chapters.Count > 0 && _file.Snapshot.ContainerType.ToContainerFamily() == ContainerFamily.Matroska;
+
+    /// <summary>Titles every chapter "Chapter 1", "Chapter 2", ... with the given word.</summary>
+    public void NumberChapters(string word = "Chapter")
+    {
+        var width = Chapters.Count >= 10 ? 2 : 1;
+        for (var i = 0; i < Chapters.Count; i++)
+        {
+            Chapters[i].Title = $"{word} {(i + 1).ToString().PadLeft(width, '0')}";
+        }
+    }
+
+    public void ResetChapters()
+    {
+        foreach (var chapter in Chapters)
+        {
+            chapter.Title = chapter.Current;
+        }
+    }
 
     public IReadOnlyList<IsoLanguage> Languages { get; }
 
@@ -236,6 +273,13 @@ public class CustomConversionEditor
         if (title != CurrentFileTitle)
         {
             plan.Title = title;
+        }
+
+        if (CanRenameChapters && Chapters.Any(c => c.IsChanged))
+        {
+            plan.Chapters = Chapters
+                .Select(c => new ChapterInfo { StartMs = c.StartMs, Title = c.IsChanged ? c.Title.Trim() : null })
+                .ToList();
         }
 
         return plan;

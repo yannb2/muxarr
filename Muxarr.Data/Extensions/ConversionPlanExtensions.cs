@@ -22,6 +22,7 @@ public static class ConversionPlanExtensions
             Faststart = DiffBool(source.HasFaststart, desired.Faststart),
             TrimToVideoLength = desired.TrimToVideoLength,
             Title = DiffString(source.Title, desired.Title),
+            Chapters = DiffChapters(source.Chapters, desired.Chapters),
             Tracks = new List<TrackPlan>(desired.Tracks.Count)
         };
 
@@ -80,7 +81,24 @@ public static class ConversionPlanExtensions
                || delta.HasAttachments != null
                || delta.Faststart != null
                || delta.Title != null
+               || delta.Chapters != null
                || delta.Tracks.Any(HasChanges);
+    }
+
+    // Keeps the wanted chapters when one of the source's chapters would get a
+    // new title. A wanted chapter with no source chapter at its start is
+    // ignored, so a file whose chapters moved does not plan forever.
+    private static List<ChapterInfo>? DiffChapters(List<ChapterInfo>? source, List<ChapterInfo>? desired)
+    {
+        if (desired == null || source == null)
+        {
+            return null;
+        }
+
+        var renames = desired.Any(d => !string.IsNullOrEmpty(d.Title)
+                                       && source.FirstOrDefault(s => s.StartsAt(d.StartMs)) is { } existing
+                                       && !string.Equals(existing.Title ?? "", d.Title, StringComparison.Ordinal));
+        return renames ? desired : null;
     }
 
     private static string? DiffString(string? source, string? desired)

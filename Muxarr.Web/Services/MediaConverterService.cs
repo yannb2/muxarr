@@ -555,6 +555,30 @@ public class MediaConverterService(
     private async Task RunMkvPropEditInPlaceAsync(MediaConversion conversion, ConversionPlan delta,
         AppDbContext context, CancellationToken token)
     {
+        try
+        {
+            await PrepareChapterFileAsync(conversion, delta);
+        }
+        catch (Exception e)
+        {
+            conversion.Log(e.Message, logger, true);
+            conversion.State = ConversionState.Failed;
+            return;
+        }
+
+        try
+        {
+            await RunMkvPropEditCoreAsync(conversion, delta, context, token);
+        }
+        finally
+        {
+            DeleteChapterFile(delta);
+        }
+    }
+
+    private async Task RunMkvPropEditCoreAsync(MediaConversion conversion, ConversionPlan delta,
+        AppDbContext context, CancellationToken token)
+    {
         var mediaFile = conversion.MediaFile!;
         conversion.State = ConversionState.Processing;
         conversion.StartedDate ??= DateTime.UtcNow;
@@ -596,17 +620,27 @@ public class MediaConverterService(
         conversion.Log($"Starting mux for {mediaFile.GetName()}..", logger);
         await context.SaveChangesAsync(token);
 
-        var reportProgress = BuildProgressReporter(conversion);
-        var result = await MkvMerge.Remux(mediaFile.Path, tmp, delta,
-            (line, progress) =>
-            {
-                if (!line.StartsWith("Progress"))
-                {
-                    conversion.Log(line, logger);
-                }
+        await PrepareChapterFileAsync(conversion, delta);
 
-                reportProgress(progress);
-            }, timeout);
+        var reportProgress = BuildProgressReporter(conversion);
+        ProcessResult result;
+        try
+        {
+            result = await MkvMerge.Remux(mediaFile.Path, tmp, delta,
+                (line, progress) =>
+                {
+                    if (!line.StartsWith("Progress"))
+                    {
+                        conversion.Log(line, logger);
+                    }
+
+                    reportProgress(progress);
+                }, timeout);
+        }
+        finally
+        {
+            DeleteChapterFile(delta);
+        }
 
         token.ThrowIfCancellationRequested();
 
@@ -685,6 +719,50 @@ public class MediaConverterService(
 
         conversion.Log($"Finished ffmpeg stream copy for {mediaFile.GetName()}.", logger);
         await context.SaveChangesAsync(token);
+    }
+
+    // Renamed chapters go to the Matroska tools as an XML file built from the
+    // source's own chapters. Throws when the rename cannot be applied, so the
+    // conversion fails with the reason instead of quietly keeping old titles.
+    private async Task PrepareChapterFileAsync(MediaConversion conversion, ConversionPlan delta)
+    {
+        delta.ChaptersFile = null;
+        if (delta.Chapters == null || delta.HasChapters == false)
+        {
+            return;
+        }
+
+        var xml = Path.Combine(Path.GetTempPath(), $"muxarr-chapters-{conversion.Id}-{Guid.NewGuid():N}.xml");
+        var result = await MkvChapters.WriteRenamed(conversion.MediaFile!.Path, delta.Chapters, xml);
+        if (result.Error != null)
+        {
+            TryDelete(xml);
+            throw new InvalidOperationException($"Could not rename chapters: {result.Error}");
+        }
+
+        conversion.Log($"Renaming chapters ({result.Renamed} matched).", logger);
+        delta.ChaptersFile = xml;
+    }
+
+    private static void DeleteChapterFile(ConversionPlan delta)
+    {
+        if (delta.ChaptersFile is { } xml)
+        {
+            TryDelete(xml);
+            delta.ChaptersFile = null;
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch
+        {
+            // A stray file in the temp folder is harmless.
+        }
     }
 
     /// <summary>

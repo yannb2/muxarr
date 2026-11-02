@@ -297,12 +297,37 @@ public static class MediaFileExtensions
             DurationMs = durationMs,
             TrackCount = tracks.Count,
             HasChapters = probe.Chapters.Count > 0,
+            Chapters = probe.Chapters.Select(ToChapterInfo).ToList(),
             HasAttachments = probe.Streams.Any(s => s.CodecType == "attachment"),
             HasFaststart = family == ContainerFamily.Mp4 && FFmpeg.IsFaststartLayout(file.Path),
             Tracks = tracks
         });
 
         return probeResult;
+    }
+
+    private static ChapterInfo ToChapterInfo(FFprobeChapter chapter)
+    {
+        static long Ms(string? seconds)
+        {
+            return double.TryParse(seconds, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                ? (long)Math.Round(value * 1000)
+                : 0;
+        }
+
+        string? title = null;
+        if (chapter.Tags != null)
+        {
+            title = chapter.Tags.FirstOrDefault(t => string.Equals(t.Key, "title", StringComparison.OrdinalIgnoreCase))
+                .Value;
+        }
+
+        return new ChapterInfo
+        {
+            StartMs = Ms(chapter.StartTime),
+            EndMs = Ms(chapter.EndTime),
+            Title = string.IsNullOrEmpty(title) ? null : title
+        };
     }
 
     /// <summary>

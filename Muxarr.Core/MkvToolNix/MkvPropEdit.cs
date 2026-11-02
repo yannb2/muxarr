@@ -95,6 +95,12 @@ public static class MkvPropEdit
             command += " --chapters \"\"";
             editCount++;
         }
+        else if (delta.ChaptersFile != null)
+        {
+            // Replaces the chapters with the renamed copy of themselves.
+            command += $" --chapters \"{delta.ChaptersFile}\"";
+            editCount++;
+        }
 
         // Guard against plan/apply drift: if a strategy of MetadataEdit
         // produced a delta whose fields Apply can't express (e.g. a bare
