@@ -363,6 +363,11 @@ namespace Muxarr.Data.Migrations
                     b.Property<DateTime>("CapturedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Chapters")
+                        .IsRequired()
+                        .IsUnicode(true)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ContainerType")
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");

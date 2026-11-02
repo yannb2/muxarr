@@ -147,6 +147,59 @@ public class ComplexConversionTests : IntegrationTestBase
         Assert.IsFalse(after.HasRemovableChapters, "no chapter work may survive");
     }
 
+    // Chapter titles from a custom conversion: in place with mkvpropedit when
+    // the tracks stay, through mkvmerge when one is dropped. Either way the
+    // rescan agrees nothing is left to rename.
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Custom_Matroska_RenamesChapters(bool dropTrack)
+    {
+        var path = CopyFixture("test_complex.mkv");
+        var chaptersXml = Path.Combine(TempDir, "chapters.xml");
+        await File.WriteAllTextAsync(chaptersXml,
+            "<?xml version=\"1.0\"?><Chapters><EditionEntry>" +
+            "<ChapterAtom><ChapterTimeStart>00:00:00.000</ChapterTimeStart>" +
+            "<ChapterDisplay><ChapterString>One</ChapterString><ChapterLanguage>eng</ChapterLanguage></ChapterDisplay></ChapterAtom>" +
+            "<ChapterAtom><ChapterTimeStart>00:00:00.500</ChapterTimeStart>" +
+            "<ChapterDisplay><ChapterString>Two</ChapterString><ChapterLanguage>eng</ChapterLanguage></ChapterDisplay></ChapterAtom>" +
+            "</EditionEntry></Chapters>");
+        await Stamp(path, $"--chapters \"{chaptersXml}\"");
+        File.Delete(chaptersXml);
+
+        var profile = await SeedComplexProfile();
+        var file = await Fixture.ScanAndPersist(path, profile);
+        CollectionAssert.AreEqual(new[] { "One", "Two" }, file.Snapshot.Chapters.Select(c => c.Title).ToArray(),
+            "the scan should list the stamped chapters");
+
+        var tracks = file.Snapshot.Tracks.ToSnapshots();
+        if (dropTrack)
+        {
+            tracks.Remove(tracks.Last(t => t.Type == MediaTrackType.Subtitles));
+        }
+
+        var target = file.BuildTargetFromCustom(tracks);
+        target.Chapters =
+        [
+            new ChapterInfo { StartMs = 0, Title = "Opening" },
+            new ChapterInfo { StartMs = 500, Title = null }
+        ];
+
+        var conversion = await Fixture.SeedConversion(file, target, true);
+
+        await Fixture.Converter.RunAsync(CancellationToken.None);
+
+        var done = await Fixture.AssertStateAsync(conversion.Id, ConversionState.Completed);
+        var probed = await FileAssertions.ProbeAsync(path);
+        CollectionAssert.AreEqual(new[] { "Opening", "Two" }, probed.Snapshot.Chapters.Select(c => c.Title).ToArray(),
+            $"only the first chapter is renamed. Log: {done.LogText()}");
+        Assert.AreEqual(dropTrack ? file.Snapshot.Tracks.Count - 1 : file.Snapshot.Tracks.Count,
+            probed.Snapshot.Tracks.Count);
+        Assert.IsNull(ConversionPlanExtensions.Delta(probed.Snapshot, target).Chapters,
+            "renamed chapters must not ask to be renamed again");
+        FileAssertions.AssertNoStrayArtifacts(TempDir, Path.GetFileName(path));
+    }
+
     private static async Task Stamp(string path, string args)
     {
         var result = await ProcessExecutor.ExecuteProcessAsync(

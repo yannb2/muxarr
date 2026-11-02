@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Muxarr.Core.Config;
 using Muxarr.Core.Extensions;
+using Muxarr.Core.Models;
 using Muxarr.Core.FFmpeg;
 using Muxarr.Core.Utilities;
 using Muxarr.Data;
@@ -356,12 +357,14 @@ public class MediaScannerService(
     {
         var now = DateTime.UtcNow;
         var size = new FileInfo(dbFile.Path) is { Exists: true } info ? info.Length : dbFile.Size;
-        if (!TrackNameBackups.NeedsSync(dbFile.OriginalTrackNames, dbFile.Path, size, now))
+        if (!TrackNameBackups.NeedsSync(dbFile.OriginalTrackNames, dbFile.Path, size, now,
+                dbFile.Snapshot.Chapters.Count > 0))
         {
             return;
         }
 
         List<TrackSnapshot>? firstSeen = null;
+        List<ChapterInfo>? firstSeenChapters = null;
         if (dbFile.Id != 0)
         {
             var firstSnapshotId = await context.MediaConversions
@@ -373,12 +376,15 @@ public class MediaScannerService(
 
             if (firstSnapshotId != null)
             {
-                firstSeen = (await context.MediaSnapshots.FirstOrDefaultAsync(s => s.Id == firstSnapshotId))?.Tracks;
+                var before = await context.MediaSnapshots.FirstOrDefaultAsync(s => s.Id == firstSnapshotId);
+                firstSeen = before?.Tracks;
+                firstSeenChapters = before?.Chapters;
             }
         }
 
         dbFile.OriginalTrackNames = TrackNameBackups.Sync(dbFile.Path, size, dbFile.Snapshot.DurationMs,
-            dbFile.Snapshot.Tracks, firstSeen, dbFile.OriginalTrackNames, now, logger);
+            dbFile.Snapshot.Tracks, firstSeen, dbFile.OriginalTrackNames, now, logger,
+            dbFile.Snapshot.Chapters, firstSeenChapters);
     }
 
     private static void ApplyProfileFlags(MediaFile file, Profile? profile)

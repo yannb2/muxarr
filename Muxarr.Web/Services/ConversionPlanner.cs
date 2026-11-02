@@ -23,6 +23,12 @@ public static class ConversionPlanner
     {
         var family = source.ContainerType.ToContainerFamily();
         var delta = ConversionPlanExtensions.Delta(source, desired);
+        if (family != ContainerFamily.Matroska)
+        {
+            // Only the Matroska tools can rename chapters.
+            delta.Chapters = null;
+        }
+
         var hasStructuralChanges = HasStructuralChanges(source, desired);
         var hasFieldChanges = ConversionPlanExtensions.HasChanges(delta);
 

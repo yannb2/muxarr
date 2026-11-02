@@ -24,6 +24,15 @@ public class ConversionPlan : IMedia<TrackPlan>
     // writers get their cut at execution time, and it only rides an existing remux.
     public bool TrimToVideoLength { get; set; }
 
+    // Chapter titles to write, matched to the source's chapters by start time.
+    // null = leave chapters alone. Matroska only; ignored elsewhere.
+    public List<ChapterInfo>? Chapters { get; set; }
+
+    // Set while a conversion runs: the chapter XML the Matroska tools read,
+    // built from the source's own chapters with the new titles. Never stored.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? ChaptersFile { get; set; }
+
     bool IMedia<TrackPlan>.HasChapters => HasChapters ?? false;
     bool IMedia<TrackPlan>.HasAttachments => HasAttachments ?? false;
 }

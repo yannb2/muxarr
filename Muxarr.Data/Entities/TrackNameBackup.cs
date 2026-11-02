@@ -23,6 +23,15 @@ public class TrackNameBackup
     public DateTime FirstSeen { get; set; }
     public DateTime LastSeen { get; set; }
     public List<OriginalTrack> Tracks { get; set; } = [];
+
+    /// <summary>Chapter titles the file arrived with. Empty for entries written before chapters were kept.</summary>
+    public List<ChapterInfo> Chapters { get; set; } = [];
+
+    /// <summary>The original title of the chapter starting at <paramref name="startMs"/>, if there was one.</summary>
+    public string? OriginalChapterTitle(long startMs)
+    {
+        return Chapters.FirstOrDefault(c => c.StartsAt(startMs))?.Title;
+    }
 }
 
 /// <summary>One track as it was in the original file.</summary>
