@@ -51,6 +51,19 @@ public enum TrackSortKey
     BestQualityFirst
 }
 
+/// <summary>The language a profile writes on video tracks.</summary>
+public enum VideoLanguageMode
+{
+    /// <summary>Leave the video track's language as it is.</summary>
+    Leave,
+
+    /// <summary>The original language from Radarr/Sonarr, like a Blu-ray disc does.</summary>
+    OriginalLanguage,
+
+    /// <summary>"und".</summary>
+    Undetermined
+}
+
 /// <summary>What a profile does with files in Jellyfin extras folders (featurettes, deleted scenes, ...).</summary>
 public enum ExtrasStrategy
 {
@@ -209,6 +222,9 @@ public class TrackSettings
     /// ("Dolby Vision Profile 7 FEL").
     /// </summary>
     public string DolbyVisionTemplate { get; set; } = string.Empty;
+
+    /// <summary>Video only: the language written on video tracks.</summary>
+    public VideoLanguageMode VideoLanguage { get; set; }
 
     /// <summary>
     /// Sort steps for <see cref="TrackReorderStrategy.CustomRules"/>, first one wins.

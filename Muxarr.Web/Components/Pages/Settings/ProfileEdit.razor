@@ -150,6 +150,20 @@
                             <small class="form-text text-muted d-block">Remove release-group branding and other leftover
                                 text from video track names during conversion.</small>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="videoLanguage">Video track language</label>
+                            <InputSelect id="videoLanguage" class="form-select"
+                                         @bind-Value="_profile.VideoSettings.VideoLanguage">
+                                <option value="@VideoLanguageMode.Leave">Leave as is</option>
+                                <option value="@VideoLanguageMode.OriginalLanguage">Original language (from
+                                    Radarr/Sonarr)</option>
+                                <option value="@VideoLanguageMode.Undetermined">Undetermined (und)</option>
+                            </InputSelect>
+                            <small class="form-text text-muted d-block">Players don't use it; it's for tidy media
+                                info. Original language follows what Blu-ray discs do, and files without a known
+                                original language are left alone. Changes are a quick in-place edit, not a
+                                remux.</small>
+                        </div>
                         <div class="mb-3 form-check form-switch">
                             <InputCheckbox id="standardizeVideoNames" class="form-check-input"
                                            @bind-Value="_profile.VideoSettings.StandardizeTrackNames"

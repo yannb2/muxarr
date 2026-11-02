@@ -245,6 +245,16 @@ public class CustomConversionEditor
         }
 
         var iso = IsoLanguage.Find(languageName);
+
+        // A video track's name says nothing about its language, so none of the
+        // name markers audio and subtitles get apply.
+        if (track.Type == MediaTrackType.Video)
+        {
+            track.LanguageName = iso.Name;
+            track.LanguageCode = iso.WriteCode ?? track.LanguageCode;
+            return;
+        }
+
         Edit(track, t =>
         {
             t.LanguageName = iso.Name;

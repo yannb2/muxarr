@@ -85,21 +85,14 @@
                            @onchange="() => ToggleTrack(track)"/>
                 </td>
                 <td class="mux-cell-inline">
-                    @if (!isVideo)
-                    {
-                        <select class="form-select form-select-sm"
-                                value="@track.LanguageName"
-                                @onchange="e => _editor.SetLanguage(track, e.Value?.ToString())">
-                            @foreach (var lang in _editor.Languages)
-                            {
-                                <option value="@lang.Name">@lang.Name</option>
-                            }
-                        </select>
-                    }
-                    else
-                    {
-                        <MediaTrackLabel Track="track"/>
-                    }
+                    <select class="form-select form-select-sm"
+                            value="@track.LanguageName"
+                            @onchange="e => _editor.SetLanguage(track, e.Value?.ToString())">
+                        @foreach (var lang in _editor.Languages)
+                        {
+                            <option value="@lang.Name">@lang.Name</option>
+                        }
+                    </select>
                 </td>
                 <td class="mux-cell-inline">
                     <code>@track.Codec.FormatCodec()</code>
