@@ -158,7 +158,8 @@ else
     }
 
     private static readonly NotificationEventType[] TriggerBadges =
-        [NotificationEventType.Started, NotificationEventType.Completed, NotificationEventType.Failed, NotificationEventType.QueueFinished];
+        [NotificationEventType.Started, NotificationEventType.Completed, NotificationEventType.Failed, NotificationEventType.QueueFinished,
+         NotificationEventType.ScanWarning];
 
     private static NotificationConfig CloneConfig(NotificationConfig src)
     {

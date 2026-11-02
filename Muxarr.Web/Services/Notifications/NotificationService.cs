@@ -52,6 +52,7 @@ public sealed class NotificationService
         IMemoryCache cache,
         IEnumerable<NotificationProvider> providers,
         MediaConverterService converter,
+        MediaScannerService scanner,
         ILogger<NotificationService> logger)
     {
         _scopeFactory = scopeFactory;
@@ -62,6 +63,92 @@ public sealed class NotificationService
 
         converter.ConverterStateChanged += OnConverterStateChanged;
         converter.QueueFinished += OnQueueFinished;
+        scanner.ScanWarningFound += OnScanWarningFound;
+    }
+
+    /// <summary>Scan warnings sent per <see cref="ScanWarningWindow"/>; the rest are only logged.</summary>
+    public const int ScanWarningLimit = 5;
+
+    public static readonly TimeSpan ScanWarningWindow = TimeSpan.FromMinutes(10);
+
+    private readonly Queue<DateTime> _scanWarningsSent = new();
+
+    private void OnScanWarningFound(ScanWarningEvent e)
+    {
+        var (send, last) = TakeScanWarningSlot(_scanWarningsSent, DateTime.UtcNow);
+        if (!send)
+        {
+            _logger.LogDebug("Scan warning notification for '{Path}' skipped; limit reached", e.Path);
+            return;
+        }
+
+        _ = SendScanWarningAsync(e, last);
+    }
+
+    /// <summary>
+    /// Rolling limit for scan warnings, so a first scan of a messy library does
+    /// not send hundreds of messages. Returns whether to send, and whether this
+    /// is the last one allowed in the window.
+    /// </summary>
+    public static (bool Send, bool Last) TakeScanWarningSlot(Queue<DateTime> sent, DateTime now)
+    {
+        lock (sent)
+        {
+            while (sent.Count > 0 && now - sent.Peek() >= ScanWarningWindow)
+            {
+                sent.Dequeue();
+            }
+
+            if (sent.Count >= ScanWarningLimit)
+            {
+                return (false, false);
+            }
+
+            sent.Enqueue(now);
+            return (true, sent.Count == ScanWarningLimit);
+        }
+    }
+
+    private async Task SendScanWarningAsync(ScanWarningEvent e, bool last)
+    {
+        const NotificationEventType eventType = NotificationEventType.ScanWarning;
+        var subject = $"scan of {e.Path}";
+        var matched = await MatchConfigsAsync(eventType, subject);
+        if (matched.Count == 0)
+        {
+            return;
+        }
+
+        var payload = BuildScanWarningPayload(e, last);
+        await Task.WhenAll(matched.Select(config => DispatchAsync(config, payload, eventType, subject)));
+    }
+
+    public static NotificationPayload BuildScanWarningPayload(ScanWarningEvent e, bool last)
+    {
+        var fileName = Path.GetFileName(e.Path);
+        var message = e.Message?.Split('\n', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim();
+        if (string.IsNullOrEmpty(message))
+        {
+            message = e.ProbeFailed ? "ffprobe could not read the file" : "ffprobe flagged a problem";
+        }
+
+        message = NotificationProvider.Clip(message, 512);
+        var body = $"{NotificationProvider.Clip(fileName, 256)} - {message}";
+        if (last)
+        {
+            body += $" (more warnings in the next {ScanWarningWindow.TotalMinutes:0} minutes are only logged; "
+                    + "filter Media by warnings to see them all)";
+        }
+
+        return new NotificationPayload
+        {
+            Title = e.ProbeFailed ? "Scan Failed" : "Scan Warning",
+            Body = body,
+            EventType = NotificationEventType.ScanWarning,
+            FileName = fileName,
+            FilePath = e.Path,
+            Error = message
+        };
     }
 
     private void OnConverterStateChanged(ConverterProgressEvent e)
