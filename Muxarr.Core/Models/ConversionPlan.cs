@@ -1,3 +1,5 @@
+using Muxarr.Core.Extensions;
+
 namespace Muxarr.Core.Models;
 
 // Desired output state, or delta of changes. Sibling of MediaSnapshot
@@ -54,6 +56,7 @@ public class TrackPlan : IMediaTrack
     string IMediaTrack.LanguageName => string.Empty;
     string IMediaTrack.Codec => string.Empty;
     int IMediaTrack.AudioChannels => 0;
+    AudioFeature IMediaTrack.AudioFeature => AudioFeature.None;
     long IMediaTrack.DurationMs => 0;
     bool IMediaTrack.IsDefault => IsDefault ?? false;
     bool IMediaTrack.IsForced => IsForced ?? false;

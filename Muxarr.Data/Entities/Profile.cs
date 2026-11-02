@@ -117,6 +117,13 @@ public class TrackSettings
     public bool StandardizeTrackNames { get; set; }
     public string TrackNameTemplate { get; set; } = string.Empty;
     public Dictionary<TrackFlag, string> TrackNameOverrides { get; set; } = new();
+
+    /// <summary>
+    /// Words the {codec} placeholder writes, keyed by the detected codec label
+    /// ("TrueHD", "TrueHD Atmos", "AC-3"). A missing or empty entry keeps the
+    /// built-in name. Resolved by <see cref="Muxarr.Core.Extensions.CodecNames"/>.
+    /// </summary>
+    public Dictionary<string, string> CodecNames { get; set; } = new();
     public bool ExcludeCodecs { get; set; }
     public List<SubtitleCodec> ExcludedCodecs { get; set; } = [];
     public List<AudioCodec> ExcludedAudioCodecs { get; set; } = [];

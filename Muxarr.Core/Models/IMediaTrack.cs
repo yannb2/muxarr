@@ -1,3 +1,5 @@
+using Muxarr.Core.Extensions;
+
 namespace Muxarr.Core.Models;
 
 public interface IMediaTrack
@@ -9,6 +11,7 @@ public interface IMediaTrack
     string LanguageName { get; }
     string Codec { get; }
     int AudioChannels { get; }
+    AudioFeature AudioFeature { get; }
     long DurationMs { get; }
     bool IsDefault { get; }
     bool IsForced { get; }

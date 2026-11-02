@@ -140,8 +140,15 @@ public static class TrackQualityScorer
         return 4; // regular
     }
 
+    // The detected feature wins; the name keywords cover files scanned before
+    // detection existed and containers ffprobe cannot read the profile from.
     private static bool IsSpatialAudio(IMediaTrack track)
     {
+        if (track.AudioFeature != AudioFeature.None)
+        {
+            return true;
+        }
+
         if (string.IsNullOrEmpty(track.Name))
         {
             return false;

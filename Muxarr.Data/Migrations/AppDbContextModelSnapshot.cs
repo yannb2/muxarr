@@ -467,6 +467,11 @@ namespace Muxarr.Data.Migrations
                     b.Property<int>("AudioChannels")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AudioFeature")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Codec")
                         .IsRequired()
                         .HasMaxLength(100)
