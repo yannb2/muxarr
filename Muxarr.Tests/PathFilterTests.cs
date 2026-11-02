@@ -62,4 +62,34 @@ public class PathFilterTests
     {
         Assert.IsFalse(PathFilter.ShouldIgnore(P(path)));
     }
+
+    [TestMethod]
+    [DataRow("/movies/live-action/Movie (2026)/Featurettes/Making Of.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/featurettes/Making Of.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Behind The Scenes/Stunts.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Deleted Scenes/Alternate Ending.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Interviews/Director.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Scenes/Opening.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Shorts/Short.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Clips/Clip.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Extras/Gag Reel.mkv")]
+    [DataRow("/tv/anime/Show (2026)/Season 01/Extras/Creditless OP.mkv")]
+    [DataRow(@"C:\movies\Movie (2026)\Featurettes\Making Of.mkv")]
+    public void IsExtra_ReturnsTrue(string path)
+    {
+        Assert.IsTrue(PathFilter.IsExtra(P(path)));
+    }
+
+    [TestMethod]
+    [DataRow("/movies/live-action/Movie (2026)/Movie (2026).mkv")]
+    // "other" is a library category, not an extras folder.
+    [DataRow("/movies/other/Movie (2026)/Movie (2026).mkv")]
+    [DataRow("/movies/other/Movie (2026)/Other/Thing.mkv")]
+    [DataRow("/tv/live-action/Extras (2005)/Season 01/Extras S01E01.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Featurettes.mkv")]
+    [DataRow("/movies/live-action/Movie (2026)/Extras.mkv")]
+    public void IsExtra_ReturnsFalse(string path)
+    {
+        Assert.IsFalse(PathFilter.IsExtra(P(path)));
+    }
 }

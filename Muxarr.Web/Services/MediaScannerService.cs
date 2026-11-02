@@ -286,14 +286,15 @@ public class MediaScannerService(
 
         var isHardlinked = HardLinkHelper.IsHardlinked(filePath);
 
-        if (profile.SkipHardlinkedFiles && isHardlinked)
+        if ((profile.SkipHardlinkedFiles && isHardlinked)
+            || (profile.Extras == ExtrasStrategy.Skip && PathFilter.IsExtra(filePath)))
         {
             var stale = await context.MediaFiles.FirstOrDefaultAsync(x => x.Path == filePath);
             if (stale != null)
             {
                 context.MediaFiles.Remove(stale);
                 await context.SaveChangesAsync();
-                logger.LogInformation("Removed previously scanned hardlinked file: {Path}", filePath);
+                logger.LogInformation("Removed previously scanned file the profile now skips: {Path}", filePath);
             }
 
             return;

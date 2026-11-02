@@ -48,6 +48,20 @@
                     }</small>
             </div>
 
+            @if (IsAudio)
+            {
+                <div class="mb-3 form-check form-switch">
+                    <InputCheckbox id="keepCompatibilityAudio" class="form-check-input"
+                                   @bind-Value="Settings.KeepCompatibilityTrack"/>
+                    <label class="form-check-label" for="keepCompatibilityAudio">Keep a compatibility track next to
+                        lossless or DTS audio</label>
+                    <small class="form-text text-muted d-block">When the kept tracks of a language are all TrueHD,
+                        DTS, FLAC or PCM, also keeps that language's best E-AC-3, AC-3 or AAC track (most channels
+                        first), even past track limits or excluded codecs. TVs, browsers and phones then direct
+                        play it instead of transcoding.</small>
+                </div>
+            }
+
             <div class="mb-3 form-check form-switch">
                 <InputCheckbox id="@($"assumeUnd{TrackTypeLabel}")" class="form-check-input"
                                @bind-Value="Settings.AssumeUndeterminedIsOriginal"/>

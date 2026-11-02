@@ -104,6 +104,19 @@
                                 in a template. Files muxarr already converted get the names from before their first
                                 conversion. Takes effect on the next scan.</small>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="extrasStrategy">Extras folders</label>
+                            <InputSelect id="extrasStrategy" class="form-select" @bind-Value="_profile.Extras">
+                                <option value="@ExtrasStrategy.Process">Same rules as the main files</option>
+                                <option value="@ExtrasStrategy.KeepAllTracks">Keep every track, only tidy names and flags</option>
+                                <option value="@ExtrasStrategy.Skip">Skip them</option>
+                            </InputSelect>
+                            <small class="form-text text-muted d-block">Files in Jellyfin extras folders
+                                (<code>Featurettes</code>, <code>Behind The Scenes</code>, <code>Deleted Scenes</code>,
+                                <code>Interviews</code>, <code>Scenes</code>, <code>Shorts</code>, <code>Clips</code>,
+                                <code>Extras</code>). Extras often carry a single track in an unexpected language, so the
+                                language rules can strip them bare. Trailers and samples are always skipped.</small>
+                        </div>
                         if (_otherProfiles.Count > 0)
                         {
                             <div class="mb-3">
@@ -322,6 +335,7 @@
                 existing.TrimToVideoLength = _profile.TrimToVideoLength;
                 existing.SkipHardlinkedFiles = _profile.SkipHardlinkedFiles;
                 existing.BackupTrackNames = _profile.BackupTrackNames;
+                existing.Extras = _profile.Extras;
                 existing.AudioSettings = _profile.AudioSettings;
                 existing.SubtitleSettings = _profile.SubtitleSettings;
                 existing.VideoSettings = _profile.VideoSettings;

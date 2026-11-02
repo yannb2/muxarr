@@ -51,6 +51,19 @@ public enum TrackSortKey
     BestQualityFirst
 }
 
+/// <summary>What a profile does with files in Jellyfin extras folders (featurettes, deleted scenes, ...).</summary>
+public enum ExtrasStrategy
+{
+    /// <summary>Same rules as the main files.</summary>
+    Process,
+
+    /// <summary>Names and flags follow the profile, but no track is removed or reordered.</summary>
+    KeepAllTracks,
+
+    /// <summary>Not scanned or converted at all.</summary>
+    Skip
+}
+
 public enum DefaultTrackStrategy
 {
     /// <summary>
@@ -138,6 +151,9 @@ public class Profile : AuditableEntity
     /// <c>.muxarr-tracks.json</c> next to it and in the database.
     /// </summary>
     public bool BackupTrackNames { get; set; }
+
+    /// <summary>How files in extras folders are treated; see <see cref="ExtrasStrategy"/>.</summary>
+    public ExtrasStrategy Extras { get; set; }
     public TrackSettings AudioSettings { get; set; } = new();
     public TrackSettings SubtitleSettings { get; set; } = new();
 
@@ -168,6 +184,13 @@ public class TrackSettings
     /// Controls whether and how tracks are physically reordered in the output file.
     /// </summary>
     public TrackReorderStrategy ReorderStrategy { get; set; }
+
+    /// <summary>
+    /// Audio only: when a language's kept tracks are all TrueHD, DTS or another
+    /// format many players cannot decode, also keep its best E-AC-3/AC-3/AAC
+    /// track, so those players direct play instead of transcoding.
+    /// </summary>
+    public bool KeepCompatibilityTrack { get; set; }
 
     public bool StandardizeTrackNames { get; set; }
     public string TrackNameTemplate { get; set; } = string.Empty;
@@ -275,6 +298,12 @@ public class ProfileConfiguration : AuditEntityConfiguration<Profile>
         builder.Property(e => e.BackupTrackNames)
             .IsRequired()
             .HasDefaultValue(false);
+
+        // Existing rows get "Process" from the migration; new ones from the CLR default.
+        builder.Property(e => e.Extras)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
 
         builder.Property(e => e.AudioSettings)
             .HasJsonConversion();
