@@ -110,6 +110,17 @@
                            placeholder="(none)"
                            value="@track.Name"
                            @onchange="e => track.Name = e.Value?.ToString()"/>
+                    @if (_editor.OriginalNameOf(track) is { } originalName)
+                    {
+                        <div class="d-flex align-items-center gap-1 mt-1 small text-muted">
+                            <i class="bi bi-clock-history"></i>
+                            <span class="text-break">@originalName</span>
+                            <ToolTip Tip="Use the name this track arrived with">
+                                <button type="button" class="btn btn-link btn-sm p-0 ms-1"
+                                        @onclick="() => _editor.UseOriginalName(track)">use this</button>
+                            </ToolTip>
+                        </div>
+                    }
                 </td>
                 <td data-label="Flags">
                     @if (!isVideo)

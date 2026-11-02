@@ -1,0 +1,62 @@
+@* The names the file arrived with, from its track name backup, next to what each track is called now. *@
+<table class="table table-sm mb-0 mux-track-table">
+    <thead>
+    <tr>
+        <th style="width: 35px;">#</th>
+        <th>Language</th>
+        <th>Format</th>
+        <th>Original name</th>
+        <th>Now</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var original in Backup.Tracks)
+    {
+        var current = _currentByOriginal.GetValueOrDefault(original);
+        <tr class="@(current == null ? "opacity-50" : "")">
+            <td>@original.Index</td>
+            <td>
+                <i class="bi @TrackTypeDisplay.Icon(original.Type) me-1 text-muted"></i>@original.LanguageName
+            </td>
+            <td><code>@original.Codec.FormatCodec()</code></td>
+            <td class="text-break">@(original.Name ?? "(none)")</td>
+            <td class="text-break text-muted small">
+                @if (current == null)
+                {
+                    <span>(removed)</span>
+                }
+                else if (current.Name == original.Name)
+                {
+                    <span>(unchanged)</span>
+                }
+                else
+                {
+                    <span>@(current.Name ?? "(none)")</span>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+<small class="text-muted d-block mt-2">
+    Saved @Backup.FirstSeen.ToLocalTime().ToString("yyyy-MM-dd") in the hidden
+    <code>@TrackNameBackups.SidecarName</code> next to the file. Use a name in a custom conversion, or put
+    <code>{originalname}</code> in a track name template.
+</small>
+
+@code {
+    [Parameter] [EditorRequired] public TrackNameBackup Backup { get; set; } = default!;
+    [Parameter] [EditorRequired] public IReadOnlyList<IMediaTrack> Tracks { get; set; } = default!;
+
+    private Dictionary<OriginalTrack, IMediaTrack> _currentByOriginal = new(ReferenceEqualityComparer.Instance);
+
+    protected override void OnParametersSet()
+    {
+        var byIndex = Tracks.ToDictionary(t => t.Index);
+        _currentByOriginal = new Dictionary<OriginalTrack, IMediaTrack>(ReferenceEqualityComparer.Instance);
+        foreach (var (index, original) in TrackNameBackups.MatchTracks(Tracks, Backup.Tracks))
+        {
+            _currentByOriginal[original] = byIndex[index];
+        }
+    }
+}

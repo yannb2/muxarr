@@ -331,6 +331,11 @@ public class MediaScannerService(
             ApplyProfileFlags(dbFile, profile);
         }
 
+        if (profile.BackupTrackNames && dbFile.Snapshot is { Tracks.Count: > 0 })
+        {
+            await BackupTrackNames(dbFile, context);
+        }
+
         // ScanMediaFile only saves when it probed, so an unchanged file on a
         // scheduled scan would drop everything set above.
         if (context.Entry(dbFile).State == EntityState.Modified)
@@ -342,6 +347,38 @@ public class MediaScannerService(
         {
             discovered?.Add(dbFile.Id);
         }
+    }
+
+    // Records the names the file arrived with, in the folder's sidecar and on the
+    // row. A file muxarr already converted is read from before its first
+    // conversion, so names renamed before the backup was turned on come back too.
+    private async Task BackupTrackNames(MediaFile dbFile, AppDbContext context)
+    {
+        var now = DateTime.UtcNow;
+        var size = new FileInfo(dbFile.Path) is { Exists: true } info ? info.Length : dbFile.Size;
+        if (!TrackNameBackups.NeedsSync(dbFile.OriginalTrackNames, dbFile.Path, size, now))
+        {
+            return;
+        }
+
+        List<TrackSnapshot>? firstSeen = null;
+        if (dbFile.Id != 0)
+        {
+            var firstSnapshotId = await context.MediaConversions
+                .Where(c => c.MediaFileId == dbFile.Id && c.BeforeSnapshotId != null
+                                                       && c.State == ConversionState.Completed)
+                .OrderBy(c => c.Id)
+                .Select(c => c.BeforeSnapshotId)
+                .FirstOrDefaultAsync();
+
+            if (firstSnapshotId != null)
+            {
+                firstSeen = (await context.MediaSnapshots.FirstOrDefaultAsync(s => s.Id == firstSnapshotId))?.Tracks;
+            }
+        }
+
+        dbFile.OriginalTrackNames = TrackNameBackups.Sync(dbFile.Path, size, dbFile.Snapshot.DurationMs,
+            dbFile.Snapshot.Tracks, firstSeen, dbFile.OriginalTrackNames, now, logger);
     }
 
     private static void ApplyProfileFlags(MediaFile file, Profile? profile)

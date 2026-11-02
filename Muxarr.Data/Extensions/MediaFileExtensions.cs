@@ -1271,6 +1271,7 @@ public static class MediaFileExtensions
             .Replace("{forced}", track.IsForced ? "Forced" : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{commentary}", track.IsCommentary ? "Commentary" : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{visualimpaired}", track.IsVisualImpaired ? "AD" : "", StringComparison.OrdinalIgnoreCase)
+            .Replace("{originalname}", (track as TrackSnapshot)?.OriginalName ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{original}", track.IsOriginal ? "Original" : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{dub}", track.IsDub ? "Dub" : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{flags}", track.GetFlagLabels(), StringComparison.OrdinalIgnoreCase);
@@ -1392,6 +1393,7 @@ public static class MediaFileExtensions
 
         var sourceTracks = file.Snapshot.Tracks;
         var allowed = GetAllowedTracks(file, profile).ToSnapshots();
+        allowed.AttachOriginalNames(file.OriginalTrackNames, sourceTracks);
         ApplyProfileMutations(allowed, profile,
             sourceTracks.Count(t => t.Type == MediaTrackType.Audio),
             sourceTracks.Count(t => t.Type == MediaTrackType.Subtitles),
@@ -1495,6 +1497,8 @@ public static class MediaFileExtensions
     /// SpecCompliant: commentary/HI/VI/dub = not default, everything else = default.
     /// ForceFirstLanguage: only the first track matching the highest-priority language = default.
     /// ForcedOnly (subtitles): non-forced tracks = not default, forced tracks untouched.
+    /// ForcedOrForeignAudio (subtitles): ForcedOnly, plus the best full subtitle in the first
+    /// language when the default audio is foreign and no forced track covers that language.
     /// </summary>
     private static void ReassignPreviewDefaultFlags(List<TrackSnapshot> previews, TrackSettings? settings,
         MediaTrackType trackType, string? originalLanguage)
@@ -1544,7 +1548,7 @@ public static class MediaFileExtensions
                 track.IsDefault = !IsSupplementary(track);
             }
         }
-        else if (settings.DefaultStrategy == DefaultTrackStrategy.ForcedOnly
+        else if (settings.DefaultStrategy is DefaultTrackStrategy.ForcedOnly or DefaultTrackStrategy.ForcedOrForeignAudio
                  && trackType == MediaTrackType.Subtitles)
         {
             // Forced tracks keep whatever flag they had; everything else is cleared.
@@ -1552,7 +1556,50 @@ public static class MediaFileExtensions
             {
                 track.IsDefault = false;
             }
+
+            if (settings.DefaultStrategy == DefaultTrackStrategy.ForcedOrForeignAudio
+                && SubtitleForForeignAudio(previews, tracksOfType, settings, originalLanguage) is { } full)
+            {
+                full.IsDefault = true;
+            }
         }
+    }
+
+    // The subtitle a foreign-language film needs on: the best full track in the
+    // first subtitle language, when the audio that plays is in another language
+    // and no forced track in that language is there to cover it. "Best" is the
+    // profile's own sort, so it is the track the custom rules put first.
+    private static TrackSnapshot? SubtitleForForeignAudio(List<TrackSnapshot> previews,
+        List<TrackSnapshot> subtitles, TrackSettings settings, string? originalLanguage)
+    {
+        var language = settings.AllowedLanguages
+            .FirstOrDefault(p => !p.IsOriginalLanguagePlaceholder)?.Name;
+        if (language == null)
+        {
+            return null;
+        }
+
+        var audio = previews.Where(t => t.Type == MediaTrackType.Audio).ToList();
+        var playing = audio.FirstOrDefault(t => t.IsDefault) ?? audio.FirstOrDefault();
+        if (playing == null || SameBaseLanguage(playing.LanguageName, language))
+        {
+            return null;
+        }
+
+        var inLanguage = subtitles.Where(t => SameBaseLanguage(t.LanguageName, language)).ToList();
+        if (inLanguage.Any(t => t.IsForced))
+        {
+            return null;
+        }
+
+        // SDH only when it is all there is in that language.
+        var candidates = inLanguage.Where(t => !IsSupplementary(t)).ToList();
+        if (candidates.Count == 0)
+        {
+            candidates = inLanguage.Where(t => !t.IsCommentary && !t.IsDub).ToList();
+        }
+
+        return candidates.Count == 0 ? null : OrderByRules(candidates, settings, originalLanguage)[0];
     }
 
     // A track is "supplementary" when it shouldn't win the default flag even

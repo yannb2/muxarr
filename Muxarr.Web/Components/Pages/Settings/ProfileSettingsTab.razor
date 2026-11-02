@@ -60,7 +60,7 @@ else
                     <TrackSettingsDisplay Settings="@profile.SubtitleSettings"/>
                 </div>
 
-                @if (profile.ClearVideoTrackNames || profile.ClearFileTitle || profile.RemoveChapters || profile.TrimToVideoLength || profile.SkipHardlinkedFiles)
+                @if (profile.ClearVideoTrackNames || profile.ClearFileTitle || profile.RemoveChapters || profile.TrimToVideoLength || profile.SkipHardlinkedFiles || profile.BackupTrackNames)
                 {
                     <div class="d-flex align-items-center gap-2 mt-2 pt-2 border-top">
                         @if (profile.ClearVideoTrackNames)
@@ -101,6 +101,14 @@ else
                             <ToolTip Tip="Files with hard links are skipped during scanning and conversion">
                                 <span class="badge text-bg-light border">
                                     <i class="bi bi-link-45deg me-1"></i>Skip hardlinked
+                                </span>
+                            </ToolTip>
+                        }
+                        @if (profile.BackupTrackNames)
+                        {
+                            <ToolTip Tip="Original track names are kept in a hidden .muxarr-tracks.json per folder">
+                                <span class="badge text-bg-light border">
+                                    <i class="bi bi-clock-history me-1"></i>Back up track names
                                 </span>
                             </ToolTip>
                         }

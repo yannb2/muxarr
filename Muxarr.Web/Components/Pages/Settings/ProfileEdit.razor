@@ -94,6 +94,38 @@
                             <small class="form-text text-muted d-block">Remove chapter markers from the file during
                                 conversion.</small>
                         </div>
+                        <div class="mb-3 form-check form-switch">
+                            <InputCheckbox id="backupTrackNames" class="form-check-input"
+                                           @bind-Value="_profile.BackupTrackNames"/>
+                            <label class="form-check-label" for="backupTrackNames">Back up original track names</label>
+                            <small class="form-text text-muted d-block">Keep the names each file's tracks arrived with,
+                                in a hidden <code>.muxarr-tracks.json</code> in its folder and in the database. They show
+                                on the file's page and in custom conversions, and <code>{originalname}</code> writes them
+                                in a template. Files muxarr already converted get the names from before their first
+                                conversion. Takes effect on the next scan.</small>
+                        </div>
+                        if (_otherProfiles.Count > 0)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label" for="copyCodecNamesFrom">Copy codec names from another
+                                    profile</label>
+                                <div class="d-flex gap-2">
+                                    <select id="copyCodecNamesFrom" class="form-select" style="width: auto;"
+                                            @bind="_copyFromProfileId">
+                                        @foreach (var other in _otherProfiles)
+                                        {
+                                            <option value="@other.Id">@other.Name</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="CopyCodecNames">
+                                        <i class="bi bi-files me-2"></i>Copy
+                                    </button>
+                                </div>
+                                <small class="form-text text-muted d-block">Replaces this profile's audio, subtitle and
+                                    video codec names and its Dolby Vision wording. Nothing is saved until you
+                                    save.</small>
+                            </div>
+                        }
                     }
                     else if (_tab == "video")
                     {
@@ -221,9 +253,20 @@
     private string _tab = "general";
     private bool _saving;
     private bool IsNew => Id == 0;
+    private List<Profile> _otherProfiles = [];
+    private int _copyFromProfileId;
 
     protected override async Task OnInitializedAsync()
     {
+        await using (var profiles = await ContextFactory.CreateDbContextAsync())
+        {
+            _otherProfiles = await profiles.Profiles.AsNoTracking()
+                .Where(p => p.Id != Id)
+                .OrderBy(p => p.Name)
+                .ToListAsync();
+            _copyFromProfileId = _otherProfiles.FirstOrDefault()?.Id ?? 0;
+        }
+
         if (IsNew)
         {
             _profile = new Profile
@@ -278,6 +321,7 @@
                 existing.RemoveChapters = _profile.RemoveChapters;
                 existing.TrimToVideoLength = _profile.TrimToVideoLength;
                 existing.SkipHardlinkedFiles = _profile.SkipHardlinkedFiles;
+                existing.BackupTrackNames = _profile.BackupTrackNames;
                 existing.AudioSettings = _profile.AudioSettings;
                 existing.SubtitleSettings = _profile.SubtitleSettings;
                 existing.VideoSettings = _profile.VideoSettings;
@@ -312,6 +356,21 @@
         new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10 },
         new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Avc), Resolution = "1920x1080" }
     ];
+
+    private void CopyCodecNames()
+    {
+        var source = _otherProfiles.FirstOrDefault(p => p.Id == _copyFromProfileId);
+        if (_profile == null || source == null)
+        {
+            return;
+        }
+
+        _profile.AudioSettings.CodecNames = new Dictionary<string, string>(source.AudioSettings.CodecNames);
+        _profile.SubtitleSettings.CodecNames = new Dictionary<string, string>(source.SubtitleSettings.CodecNames);
+        _profile.VideoSettings.CodecNames = new Dictionary<string, string>(source.VideoSettings.CodecNames);
+        _profile.VideoSettings.DolbyVisionTemplate = source.VideoSettings.DolbyVisionTemplate;
+        ToastService.ShowInfo($"Codec names copied from '{source.Name}'. Save to keep them.");
+    }
 
     private void OnStandardizeVideoToggled()
     {

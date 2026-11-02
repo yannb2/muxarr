@@ -110,6 +110,11 @@ public class TrackSnapshot : IMediaTrack
     public string? Name { get; set; } = string.Empty;
     public long DurationMs { get; set; }
 
+    // Not stored: the name the track arrived with, from the file's track name
+    // backup, set while building a profile target for {originalname}.
+    [CompareIgnore]
+    public string? OriginalName { get; set; }
+
     [CompareIgnore]
     public MediaSnapshot? Snapshot { get; set; }
 }
@@ -198,6 +203,8 @@ public class TrackSnapshotConfiguration : IEntityTypeConfiguration<TrackSnapshot
 
         builder.Property(e => e.Name)
             .HasMaxLength(500);
+
+        builder.Ignore(e => e.OriginalName);
 
         builder.HasIndex(e => new { e.SnapshotId, e.Index }).IsUnique();
         builder.HasIndex(e => new { e.SnapshotId, e.Type, e.Codec });

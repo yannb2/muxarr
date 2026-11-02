@@ -263,6 +263,10 @@ namespace Muxarr.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("OriginalTrackNames")
+                        .IsUnicode(true)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Path")
                         .IsRequired()
                         .HasMaxLength(4096)
@@ -408,6 +412,11 @@ namespace Muxarr.Data.Migrations
                         .IsRequired()
                         .IsUnicode(true)
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("BackupTrackNames")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("ClearFileTitle")
                         .ValueGeneratedOnAdd()
