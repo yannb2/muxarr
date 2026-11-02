@@ -20,7 +20,35 @@ public enum TrackReorderStrategy
     /// Reorder tracks to match the AllowedLanguages priority list. Source order is kept within a language.
     /// Requires AllowedLanguages to be configured.
     /// </summary>
-    MatchLanguagePriority
+    MatchLanguagePriority,
+
+    /// <summary>
+    /// Sort by the ordered <see cref="TrackSettings.SortKeys"/>, e.g. forced first, then language
+    /// priority, then codec order. Source order breaks the remaining ties.
+    /// </summary>
+    CustomRules
+}
+
+/// <summary>One step of the <see cref="TrackReorderStrategy.CustomRules"/> sort, applied in list order.</summary>
+public enum TrackSortKey
+{
+    [Display(Name = "Forced first")]
+    ForcedFirst,
+
+    [Display(Name = "Language priority")]
+    LanguagePriority,
+
+    [Display(Name = "Codec order")]
+    CodecOrder,
+
+    [Display(Name = "SDH last")]
+    HearingImpairedLast,
+
+    [Display(Name = "Commentary last")]
+    CommentaryLast,
+
+    [Display(Name = "Best quality first")]
+    BestQualityFirst
 }
 
 public enum DefaultTrackStrategy
@@ -41,7 +69,13 @@ public enum DefaultTrackStrategy
     /// Requires AllowedLanguages to be configured for a meaningful priority order.
     /// Use when the player doesn't have language preference settings.
     /// </summary>
-    ForceFirstLanguage
+    ForceFirstLanguage,
+
+    /// <summary>
+    /// Subtitles only: clears the default flag on every track that is not forced, and leaves
+    /// forced tracks as they are. A full subtitle never turns itself on.
+    /// </summary>
+    ForcedOnly
 }
 
 public enum TrackFlag
@@ -124,6 +158,25 @@ public class TrackSettings
     /// built-in name. Resolved by <see cref="Muxarr.Core.Extensions.CodecNames"/>.
     /// </summary>
     public Dictionary<string, string> CodecNames { get; set; } = new();
+
+    /// <summary>
+    /// Sort steps for <see cref="TrackReorderStrategy.CustomRules"/>, first one wins.
+    /// Empty means <see cref="DefaultSortKeys"/>.
+    /// </summary>
+    public List<TrackSortKey> SortKeys { get; set; } = [];
+
+    /// <summary>Subtitle codecs in the order <see cref="TrackSortKey.CodecOrder"/> places them. Unlisted codecs go last.</summary>
+    public List<SubtitleCodec> SubtitleCodecOrder { get; set; } = [];
+
+    /// <summary>Audio codecs in the order <see cref="TrackSortKey.CodecOrder"/> places them. Unlisted codecs go last.</summary>
+    public List<AudioCodec> AudioCodecOrder { get; set; } = [];
+
+    public static readonly IReadOnlyList<TrackSortKey> DefaultSortKeys =
+        [TrackSortKey.ForcedFirst, TrackSortKey.LanguagePriority, TrackSortKey.CodecOrder];
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<TrackSortKey> EffectiveSortKeys =>
+        SortKeys.Count > 0 ? SortKeys.Distinct().ToList() : DefaultSortKeys;
     public bool ExcludeCodecs { get; set; }
     public List<SubtitleCodec> ExcludedCodecs { get; set; } = [];
     public List<AudioCodec> ExcludedAudioCodecs { get; set; } = [];

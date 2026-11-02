@@ -121,6 +121,14 @@ else
             </span>
         </ToolTip>
     }
+    else if (Settings.DefaultStrategy == DefaultTrackStrategy.ForcedOnly)
+    {
+        <ToolTip Tip="Default track: only forced subtitles can be default.">
+            <span class="badge text-bg-info me-1">
+                <i class="bi bi-lock me-1"></i>Forced-only default
+            </span>
+        </ToolTip>
+    }
 
     @if (Settings.ReorderStrategy == TrackReorderStrategy.Alphabetical)
     {
@@ -135,6 +143,14 @@ else
         <ToolTip Tip="Tracks will be physically reordered to match the priority list. Requires remux.">
             <span class="badge text-bg-info me-1">
                 <i class="bi bi-sort-down-alt me-1"></i>Priority order
+            </span>
+        </ToolTip>
+    }
+    else if (Settings.ReorderStrategy == TrackReorderStrategy.CustomRules)
+    {
+        <ToolTip Tip="@CustomOrderTip">
+            <span class="badge text-bg-info me-1">
+                <i class="bi bi-list-ol me-1"></i>Custom order
             </span>
         </ToolTip>
     }
@@ -153,6 +169,11 @@ else
     private string ExcludedCodecNames => string.Join(", ",
         Settings.ExcludedCodecs.Select(c => c.DisplayName())
             .Concat(Settings.ExcludedAudioCodecs.Select(c => c.DisplayName())));
+
+    private string CustomOrderTip =>
+        "Tracks will be reordered by: "
+        + string.Join(", then ", Settings.EffectiveSortKeys.Select(k => k.DisplayName()))
+        + ". Requires remux.";
 
     private bool IsUnmodified =>
         !Settings.Enabled
