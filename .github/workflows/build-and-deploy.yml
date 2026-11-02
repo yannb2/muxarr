@@ -27,7 +27,10 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                os: [ ubuntu-24.04, ubuntu-24.04-arm, windows-latest, macos-latest ]
+                # No macOS on the fork: hosted macOS arm64 runners are capacity
+                # limited, the job was never picked up and its cancel skipped the
+                # image build. The image is Linux only; upstream still tests macOS.
+                os: [ ubuntu-24.04, ubuntu-24.04-arm, windows-latest ]
         runs-on: ${{ matrix.os }}
         steps:
             -   name: Checkout code
