@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using Muxarr.Core.Extensions;
 using Muxarr.Core.Models;
 using Muxarr.Core.Utilities;
 
@@ -43,6 +44,36 @@ public static class FFmpeg
         }
 
         return json;
+    }
+
+    /// <summary>
+    /// True when the first frames of a video stream carry HDR10+ dynamic
+    /// metadata. It lives in per-frame SEI, not the stream header, so this
+    /// decodes a handful of frames (about a second on a 4K HEVC remux).
+    /// Null when ffprobe fails, so a probe error never reads as "no HDR10+".
+    /// </summary>
+    public static async Task<bool?> HasHdr10Plus(string file, int streamIndex, int frames = 5)
+    {
+        try
+        {
+            var result = await ProcessExecutor.ExecuteProcessAsync(FfprobeExecutable,
+                argumentList:
+                [
+                    "-v", "error", "-select_streams", streamIndex.ToString(CultureInfo.InvariantCulture),
+                    "-read_intervals", $"%+#{frames}", "-show_frames", "-print_format", "json", file
+                ],
+                timeout: TimeSpan.FromMinutes(1));
+            if (!IsSuccess(result) || string.IsNullOrEmpty(result.Output))
+            {
+                return null;
+            }
+
+            return HdrInfo.HasHdr10Plus(JsonHelper.Deserialize<FFprobeFramesResult>(result.Output));
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     // Seeks into the tail and reads to EOF, so a file carrying no DURATION tags

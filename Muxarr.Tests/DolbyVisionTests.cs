@@ -90,6 +90,53 @@ public class DolbyVisionTests
         Assert.AreEqual(expected, HdrInfo.ParseHdrFormat(transfer) ?? "");
     }
 
+    // Trimmed from `ffprobe -show_frames -read_intervals %+#2` on an HDR10+ HEVC file.
+    private const string Hdr10PlusFrames = """
+        {
+          "frames": [
+            {
+              "media_type": "video",
+              "side_data_list": [
+                { "side_data_type": "Mastering display metadata", "red_x": "34000/50000" },
+                {
+                  "side_data_type": "HDR Dynamic Metadata SMPTE2094-40 (HDR10+)",
+                  "application_version": 1,
+                  "num_windows": 1,
+                  "targeted_system_display_maximum_luminance": "400/1"
+                }
+              ]
+            }
+          ]
+        }
+        """;
+
+    private const string Hdr10OnlyFrames = """
+        {
+          "frames": [
+            { "media_type": "video", "side_data_list": [ { "side_data_type": "Mastering display metadata" } ] },
+            { "media_type": "video" }
+          ]
+        }
+        """;
+
+    [TestMethod]
+    public void HasHdr10Plus_FindsTheDynamicMetadata()
+    {
+        Assert.IsTrue(HdrInfo.HasHdr10Plus(JsonHelper.Deserialize<FFprobeFramesResult>(Hdr10PlusFrames)));
+        Assert.IsFalse(HdrInfo.HasHdr10Plus(JsonHelper.Deserialize<FFprobeFramesResult>(Hdr10OnlyFrames)));
+        Assert.IsFalse(HdrInfo.HasHdr10Plus(null));
+    }
+
+    [TestMethod]
+    public void Template_DvWithHdr10Plus()
+    {
+        var track = DvVideo("8.1", null);
+        track.HdrFormat = HdrInfo.Hdr10Plus;
+
+        Assert.AreEqual("HEVC DV P8.1 HDR10+", track.ApplyTrackNameTemplate("{codec} {dv} {hdr}",
+            new Dictionary<string, string> { ["H.265 / HEVC"] = "HEVC" }));
+    }
+
     [TestMethod]
     [DataRow("Summary:\n  Frames: 500\n  Profile: 7 (FEL)\n  DM version: 1 (CM v2.9)", "FEL")]
     [DataRow("Summary:\n  Frames: 500\n  Profile: 7 (MEL)\n  DM version: 1 (CM v2.9)", "MEL")]

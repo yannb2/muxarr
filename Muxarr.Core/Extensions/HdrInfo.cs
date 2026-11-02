@@ -10,6 +10,7 @@ namespace Muxarr.Core.Extensions;
 public static partial class HdrInfo
 {
     public const string Hdr10 = "HDR10";
+    public const string Hdr10Plus = "HDR10+";
     public const string Hlg = "HLG";
     public const string Fel = "FEL";
     public const string Mel = "MEL";
@@ -23,6 +24,14 @@ public static partial class HdrInfo
             "arib-std-b67" => Hlg,
             _ => null
         };
+    }
+
+    /// <summary>True when any probed frame carries HDR10+ (SMPTE ST 2094-40) side data.</summary>
+    public static bool HasHdr10Plus(FFprobeFramesResult? frames)
+    {
+        return frames?.Frames.Any(f => f.SideDataList?.Any(s =>
+            s.SideDataType?.Contains(FFprobeFrameSideData.Hdr10PlusMarker, StringComparison.OrdinalIgnoreCase) == true
+            || s.SideDataType?.Contains("2094-40", StringComparison.Ordinal) == true) == true) == true;
     }
 
     public static FFprobeSideData? FindDoviRecord(IEnumerable<FFprobeSideData>? sideData)

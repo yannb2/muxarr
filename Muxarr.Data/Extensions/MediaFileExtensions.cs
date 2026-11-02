@@ -256,6 +256,13 @@ public static class MediaFileExtensions
                 track.DvLayer = await DoviTool.GetEnhancementLayerType(file.Path);
             }
 
+            // HDR10+ rides on HDR10 (PQ) as per-frame metadata the stream header
+            // does not show, so only PQ video pays for decoding a few frames.
+            if (track.HdrFormat == HdrInfo.Hdr10 && await FFmpeg.HasHdr10Plus(file.Path, stream.Index) == true)
+            {
+                track.HdrFormat = HdrInfo.Hdr10Plus;
+            }
+
             track.RefineLanguageFromName();
             tracks.Add(track);
         }

@@ -97,7 +97,7 @@ public class TrackSnapshot : IMediaTrack
     public int AudioChannels { get; set; }
     public AudioFeature AudioFeature { get; set; }
 
-    // Video only. HDR10/HLG from the base layer, Dolby Vision profile ("7",
+    // Video only. HDR10/HLG from the base layer (HDR10+ from frame metadata), Dolby Vision profile ("7",
     // "8.1") from the DOVI record, FEL/MEL from dovi_tool. Null when absent.
     public string? HdrFormat { get; set; }
     public string? DvProfile { get; set; }

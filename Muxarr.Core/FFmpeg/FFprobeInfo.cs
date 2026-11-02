@@ -93,6 +93,29 @@ public class FFprobeSideData
     public int? DvBlSignalCompatibilityId { get; set; }
 }
 
+// Output of `ffprobe -show_frames`: only the per-frame side data is read.
+public class FFprobeFramesResult
+{
+    [JsonPropertyName("frames")]
+    public List<FFprobeFrame> Frames { get; set; } = [];
+}
+
+public class FFprobeFrame
+{
+    [JsonPropertyName("side_data_list")]
+    public List<FFprobeFrameSideData>? SideDataList { get; set; }
+}
+
+public class FFprobeFrameSideData
+{
+    // HDR10+ is per-frame SMPTE ST 2094-40 metadata; ffprobe names it
+    // "HDR Dynamic Metadata SMPTE2094-40 (HDR10+)".
+    public const string Hdr10PlusMarker = "HDR10+";
+
+    [JsonPropertyName("side_data_type")]
+    public string? SideDataType { get; set; }
+}
+
 public class FFprobeDisposition
 {
     [JsonPropertyName("default")]
