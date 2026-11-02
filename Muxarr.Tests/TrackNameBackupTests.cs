@@ -249,4 +249,44 @@ public class TrackNameBackupTests
         Assert.AreEqual("Surround 5.1", english.Name);
         Assert.AreEqual("Surround 5.1", editor.Build().Tracks.Single(t => t.Index == 1).Name);
     }
+
+    [TestMethod]
+    public void Sync_KeepsTheFirstChapterTitles_AndBackfillsOldEntries()
+    {
+        var path = MakeMedia("Movie (2020).mkv");
+        List<ChapterInfo> arrived = [new() { StartMs = 0, Title = "Prologue" }, new() { StartMs = 60_000, Title = "Heist" }];
+        List<ChapterInfo> renamed = [new() { StartMs = 0, Title = "Chapter 1" }, new() { StartMs = 60_000, Title = "Chapter 2" }];
+
+        // An entry written before chapters were backed up.
+        var old = TrackNameBackups.Sync(path, 1000, 7_200_000, Release("Surround", "Full"), null, null, Now);
+        Assert.AreEqual(0, old.Chapters.Count);
+        Assert.IsTrue(TrackNameBackups.NeedsSync(old, path, 1000, Now, hasChapters: true));
+
+        var filled = TrackNameBackups.Sync(path, 1000, 7_200_000, Release("Surround", "Full"), null, old,
+            Now.AddHours(1), currentChapters: arrived);
+        var later = TrackNameBackups.Sync(path, 1000, 7_200_000, Release("Surround", "Full"), null, filled,
+            Now.AddDays(8), currentChapters: renamed);
+
+        Assert.AreEqual("Prologue", later.OriginalChapterTitle(0));
+        Assert.AreEqual("Heist", later.OriginalChapterTitle(60_001), "matched by start time");
+        Assert.IsFalse(TrackNameBackups.NeedsSync(later, path, 1000, Now.AddDays(8), hasChapters: true));
+    }
+
+    [TestMethod]
+    public void CustomConversion_OriginalChapterTitles()
+    {
+        var file = MakeFile("English", Video(0), Audio(1));
+        file.Snapshot.ContainerType = "Matroska";
+        file.Snapshot.Chapters = [new ChapterInfo { StartMs = 0, Title = "Chapter 1" }, new ChapterInfo { StartMs = 5000, Title = "Chapter 2" }];
+        file.OriginalTrackNames = TrackNameBackups.Capture([Video(0), Audio(1)], Now,
+            [new ChapterInfo { StartMs = 0, Title = "Prologue" }]);
+        var editor = new CustomConversionEditor(file);
+
+        Assert.IsTrue(editor.HasOriginalChapterTitles);
+        editor.UseOriginalChapterTitles();
+
+        var chapters = editor.Build().Chapters!;
+        Assert.AreEqual("Prologue", chapters[0].Title);
+        Assert.IsNull(chapters[1].Title, "no original for that one, so it stays");
+    }
 }

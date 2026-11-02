@@ -183,6 +183,10 @@
                                     <th style="width: 35px;">#</th>
                                     <th style="width: 110px;">Start</th>
                                     <th>Title</th>
+                                    @if (HasRenamedChapters)
+                                    {
+                                        <th>Original title</th>
+                                    }
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -193,6 +197,13 @@
                                         <td>@(i + 1)</td>
                                         <td class="text-muted">@ChapterInfo.FormatTime(chapter.StartMs)</td>
                                         <td class="text-break">@(chapter.Title ?? "(no title)")</td>
+                                        @if (HasRenamedChapters)
+                                        {
+                                            var original = File.OriginalTrackNames!.OriginalChapterTitle(chapter.StartMs);
+                                            <td class="text-break text-muted small">
+                                                @(original == chapter.Title ? "(unchanged)" : original ?? "(no title)")
+                                            </td>
+                                        }
                                     </tr>
                                 }
                                 </tbody>
@@ -269,6 +280,12 @@
     private int _selectedProfileId;
     private Profile? _selectedProfile;
     private bool _isSubmitting;
+
+    // The backup's chapter titles only earn a column when one of them differs from now.
+    private bool HasRenamedChapters => File?.OriginalTrackNames is { Chapters.Count: > 0 } backup
+                                       && File.Snapshot.Chapters.Any(c =>
+                                           backup.OriginalChapterTitle(c.StartMs) is { } original
+                                           && original != c.Title);
 
     private bool IsAddToQueueDisabled =>
         _isSubmitting || File?.Conversions.Any(c =>

@@ -185,6 +185,13 @@
                 <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => _editor.NumberChapters()">
                     <i class="bi bi-list-ol me-1"></i>Chapter 1, 2, 3...
                 </button>
+                @if (_editor.HasOriginalChapterTitles)
+                {
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            @onclick="_editor.UseOriginalChapterTitles">
+                        <i class="bi bi-clock-history me-1"></i>Original titles
+                    </button>
+                }
                 <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="_editor.ResetChapters">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
                 </button>

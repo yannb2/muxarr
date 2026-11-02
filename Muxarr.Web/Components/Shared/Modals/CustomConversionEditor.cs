@@ -31,7 +31,10 @@ public class CustomConversionEditor
         _tracks.AttachOriginalNames(file.OriginalTrackNames, file.Snapshot.Tracks);
         FileTitle = file.Snapshot.Title ?? "";
         Chapters = file.Snapshot.Chapters
-            .Select(c => new ChapterEdit(c.StartMs, c.Title ?? "", c.Title ?? ""))
+            .Select(c => new ChapterEdit(c.StartMs, c.Title ?? "", c.Title ?? "")
+            {
+                Original = file.OriginalTrackNames?.OriginalChapterTitle(c.StartMs)
+            })
             .ToList();
 
         // Start from raw file state: every track kept, no mutations applied.
@@ -69,6 +72,22 @@ public class CustomConversionEditor
         public string Current { get; } = current;
         public string Title { get; set; } = title;
         public bool IsChanged => !string.IsNullOrWhiteSpace(Title) && Title.Trim() != Current;
+
+        /// <summary>The title from the track name backup, when the file arrived with one.</summary>
+        public string? Original { get; init; }
+    }
+
+    /// <summary>True when the backup holds a chapter title that differs from the file's.</summary>
+    public bool HasOriginalChapterTitles =>
+        Chapters.Any(c => !string.IsNullOrEmpty(c.Original) && c.Original != c.Current);
+
+    /// <summary>Puts back the titles the file arrived with, where the backup has one.</summary>
+    public void UseOriginalChapterTitles()
+    {
+        foreach (var chapter in Chapters.Where(c => !string.IsNullOrEmpty(c.Original)))
+        {
+            chapter.Title = chapter.Original!;
+        }
     }
 
     /// <summary>The file's chapters with editable titles. Only Matroska files can have them renamed.</summary>

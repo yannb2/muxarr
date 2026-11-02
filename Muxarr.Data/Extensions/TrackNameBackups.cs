@@ -27,12 +27,15 @@ public static class TrackNameBackups
     private const long DurationToleranceMs = 5_000;
 
     /// <summary>True when the stored copy no longer describes the file and the sidecar needs a visit.</summary>
-    public static bool NeedsSync(TrackNameBackup? stored, string path, long size, DateTime now)
+    public static bool NeedsSync(TrackNameBackup? stored, string path, long size, DateTime now,
+        bool hasChapters = false)
     {
         return stored == null
                || stored.FileName != Path.GetFileName(path)
                || stored.Size != size
-               || now - stored.LastSeen > RefreshAfter;
+               || now - stored.LastSeen > RefreshAfter
+               // An entry from before chapters were backed up gets them once.
+               || (hasChapters && stored.Chapters.Count == 0);
     }
 
     /// <summary>
@@ -44,7 +47,8 @@ public static class TrackNameBackups
     /// </summary>
     public static TrackNameBackup Sync(string path, long size, long durationMs,
         IReadOnlyList<IMediaTrack> currentTracks, IReadOnlyList<IMediaTrack>? firstSeenTracks,
-        TrackNameBackup? stored, DateTime now, ILogger? logger = null)
+        TrackNameBackup? stored, DateTime now, ILogger? logger = null,
+        IReadOnlyList<ChapterInfo>? currentChapters = null, IReadOnlyList<ChapterInfo>? firstSeenChapters = null)
     {
         var directory = Path.GetDirectoryName(path) ?? ".";
         var fileName = Path.GetFileName(path);
@@ -59,10 +63,16 @@ public static class TrackNameBackups
             sidecar?.Files.Add(entry);
         }
 
+        var chapters = firstSeenChapters is { Count: > 0 } ? firstSeenChapters : currentChapters;
         if (entry == null)
         {
-            entry = Capture(firstSeenTracks ?? currentTracks, now);
+            entry = Capture(firstSeenTracks ?? currentTracks, now, chapters);
             sidecar?.Files.Add(entry);
+        }
+        else if (entry.Chapters.Count == 0 && chapters is { Count: > 0 })
+        {
+            // Entries written before chapters were backed up: take them once.
+            entry.Chapters = CopyChapters(chapters);
         }
 
         // A different file under this name (a new release kept the old name) replaces the old entry.
@@ -82,12 +92,21 @@ public static class TrackNameBackups
         return Copy(entry);
     }
 
-    public static TrackNameBackup Capture(IEnumerable<IMediaTrack> tracks, DateTime now)
+    private static List<ChapterInfo> CopyChapters(IEnumerable<ChapterInfo> chapters)
+    {
+        return chapters
+            .Select(c => new ChapterInfo { StartMs = c.StartMs, EndMs = c.EndMs, Title = c.Title })
+            .ToList();
+    }
+
+    public static TrackNameBackup Capture(IEnumerable<IMediaTrack> tracks, DateTime now,
+        IEnumerable<ChapterInfo>? chapters = null)
     {
         return new TrackNameBackup
         {
             FirstSeen = now,
             LastSeen = now,
+            Chapters = CopyChapters(chapters ?? []),
             Tracks = tracks
                 .OrderBy(t => t.Index)
                 .Select(t => new OriginalTrack
