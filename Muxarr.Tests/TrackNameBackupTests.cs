@@ -230,7 +230,7 @@ public class TrackNameBackupTests
 
         var target = file.BuildTargetFromProfile(profile);
 
-        Assert.AreEqual("English - Commentary-free mix", target.Tracks.Single(t => t.Index == 1).Name);
+        Assert.AreEqual("English - Theatrical mix", target.Tracks.Single(t => t.Index == 1).Name);
     }
 
     [TestMethod]
