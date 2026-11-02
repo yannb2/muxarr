@@ -106,6 +106,57 @@
                                 text from video track names during conversion.</small>
                         </div>
                         <div class="mb-3 form-check form-switch">
+                            <InputCheckbox id="standardizeVideoNames" class="form-check-input"
+                                           @bind-Value="_profile.VideoSettings.StandardizeTrackNames"
+                                           @bind-Value:after="OnStandardizeVideoToggled"/>
+                            <label class="form-check-label" for="standardizeVideoNames">Standardize video track
+                                names</label>
+                            <small class="form-text text-muted d-block">Rename video tracks using a template, for
+                                example with the Dolby Vision profile. Wins over clearing the name.</small>
+                        </div>
+                        @if (_profile.VideoSettings.StandardizeTrackNames)
+                        {
+                            <div class="mb-3 ms-4">
+                                <div class="option-label text-muted small mb-1">Template</div>
+                                <InputText id="videoTrackNameTemplate" class="form-control form-control-sm"
+                                           @bind-Value="_profile.VideoSettings.TrackNameTemplate"/>
+                                <small class="form-text text-muted d-block">
+                                    Placeholders: <code>{codec}</code>, <code>{hdr}</code> (HDR10, HLG),
+                                    <code>{dv}</code> (DV P7 FEL, DV P8.1), <code>{dvprofile}</code> (7, 8.1),
+                                    <code>{dvlayer}</code> (FEL, MEL), <code>{trackname}</code>.
+                                    FEL/MEL needs dovi_tool, which the image includes. Leave empty to clear video track
+                                    names.
+                                </small>
+                                <div class="mt-2 text-muted small">
+                                    <i class="bi bi-eye me-1"></i>Preview:
+                                    <div class="mt-1">
+                                        @foreach (var track in VideoPreviewTracks)
+                                        {
+                                            <div>
+                                                <code>@(track.ApplyTrackNameTemplate(_profile.VideoSettings.TrackNameTemplate, _profile.VideoSettings.CodecNames) ?? "(empty)")</code>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="mt-3 option-label text-muted small mb-1">Codec names</div>
+                                <div class="d-flex flex-column gap-2 ms-2 border-start ps-3">
+                                    @foreach (var label in CodecNames.Labels(MediaTrackType.Video))
+                                    {
+                                        var currentLabel = label;
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge text-bg-secondary text-truncate" style="width: 170px;"
+                                                  title="@label">@label</span>
+                                            <input type="text" class="form-control form-control-sm"
+                                                   style="max-width: 300px;" placeholder="@label"
+                                                   value="@(_profile.VideoSettings.CodecNames.GetValueOrDefault(currentLabel) ?? "")"
+                                                   @onchange="e => SetVideoCodecName(currentLabel, e.Value?.ToString())"/>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        <div class="mb-3 form-check form-switch">
                             <InputCheckbox id="trimToVideoLength" class="form-check-input"
                                            @bind-Value="_profile.TrimToVideoLength"/>
                             <label class="form-check-label" for="trimToVideoLength">Trim all tracks to video
@@ -218,6 +269,7 @@
                 existing.SkipHardlinkedFiles = _profile.SkipHardlinkedFiles;
                 existing.AudioSettings = _profile.AudioSettings;
                 existing.SubtitleSettings = _profile.SubtitleSettings;
+                existing.VideoSettings = _profile.VideoSettings;
                 context.Update(existing);
             }
 
@@ -238,6 +290,40 @@
         else if (IsNew)
         {
             NavigationManager.NavigateTo($"/settings/profile/{_profile.Id}", replace: true);
+        }
+    }
+
+
+    private static readonly List<TrackSnapshot> VideoPreviewTracks =
+    [
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "7", DvLayer = HdrInfo.Fel },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "8.1" },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10 },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Avc) }
+    ];
+
+    private void OnStandardizeVideoToggled()
+    {
+        if (_profile is { VideoSettings: { StandardizeTrackNames: true, TrackNameTemplate: "" } })
+        {
+            _profile.VideoSettings.TrackNameTemplate = "{codec} {dv} {hdr}";
+        }
+    }
+
+    private void SetVideoCodecName(string label, string? value)
+    {
+        if (_profile == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _profile.VideoSettings.CodecNames.Remove(label);
+        }
+        else
+        {
+            _profile.VideoSettings.CodecNames[label] = value.Trim();
         }
     }
 

@@ -57,6 +57,9 @@ public class TrackPlan : IMediaTrack
     string IMediaTrack.Codec => string.Empty;
     int IMediaTrack.AudioChannels => 0;
     AudioFeature IMediaTrack.AudioFeature => AudioFeature.None;
+    string? IMediaTrack.HdrFormat => null;
+    string? IMediaTrack.DvProfile => null;
+    string? IMediaTrack.DvLayer => null;
     long IMediaTrack.DurationMs => 0;
     bool IMediaTrack.IsDefault => IsDefault ?? false;
     bool IMediaTrack.IsForced => IsForced ?? false;

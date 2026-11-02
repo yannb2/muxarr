@@ -453,6 +453,11 @@ namespace Muxarr.Data.Migrations
                     b.Property<DateTime>("UpdatedDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("VideoSettings")
+                        .IsRequired()
+                        .IsUnicode(true)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.ToTable("Profile", (string)null);
@@ -479,6 +484,18 @@ namespace Muxarr.Data.Migrations
 
                     b.Property<long>("DurationMs")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("DvLayer")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DvProfile")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HdrFormat")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Index")
                         .HasColumnType("INTEGER");

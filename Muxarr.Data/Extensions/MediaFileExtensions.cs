@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Muxarr.Core.DoviTool;
 using Muxarr.Core.Extensions;
 using Muxarr.Core.FFmpeg;
 using Muxarr.Core.Language;
@@ -228,6 +229,10 @@ public static class MediaFileExtensions
                 AudioFeature = type == MediaTrackType.Audio
                     ? AudioFeatureExtensions.ParseAudioFeature(stream.Profile)
                     : AudioFeature.None,
+                HdrFormat = type == MediaTrackType.Video ? HdrInfo.ParseHdrFormat(stream.ColorTransfer) : null,
+                DvProfile = type == MediaTrackType.Video
+                    ? HdrInfo.ParseDvProfile(HdrInfo.FindDoviRecord(stream.SideDataList))
+                    : null,
                 IsDefault = disposition.Default == 1,
                 IsForced = disposition.Forced == 1 || TrackNameFlags.ContainsForced(trackName),
                 IsHearingImpaired =
@@ -243,6 +248,13 @@ public static class MediaFileExtensions
                 IsDub = (trustDispositionDub && disposition.Dub == 1) || TrackNameFlags.ContainsDub(trackName),
                 DurationMs = ParseTrackDurationMs(stream, family)
             };
+
+            // FEL vs MEL lives in the RPU, which only dovi_tool reads (Matroska only).
+            if (type == MediaTrackType.Video && family == ContainerFamily.Matroska
+                && HdrInfo.HasEnhancementLayer(HdrInfo.FindDoviRecord(stream.SideDataList)))
+            {
+                track.DvLayer = await DoviTool.GetEnhancementLayerType(file.Path);
+            }
 
             track.RefineLanguageFromName();
             tracks.Add(track);
@@ -1027,7 +1039,11 @@ public static class MediaFileExtensions
         {
             if (snapshot.Type == MediaTrackType.Video)
             {
-                if (profile.ClearVideoTrackNames)
+                if (standardizeNames && profile.VideoSettings is { StandardizeTrackNames: true } video)
+                {
+                    snapshot.Name = snapshot.ApplyTrackNameTemplate(video.TrackNameTemplate, video.CodecNames);
+                }
+                else if (profile.ClearVideoTrackNames)
                 {
                     snapshot.Name = null;
                 }
@@ -1229,6 +1245,10 @@ public static class MediaFileExtensions
             .Replace("{variant}", LanguageVariants.PreferredMarker(iso) ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{codec}", CodecNames.Resolve(track, codecNames), StringComparison.OrdinalIgnoreCase)
             .Replace("{object}", track.AudioFeature.DisplayName(), StringComparison.OrdinalIgnoreCase)
+            .Replace("{hdr}", track.HdrFormat ?? "", StringComparison.OrdinalIgnoreCase)
+            .Replace("{dvprofile}", track.DvProfile ?? "", StringComparison.OrdinalIgnoreCase)
+            .Replace("{dvlayer}", track.DvLayer ?? "", StringComparison.OrdinalIgnoreCase)
+            .Replace("{dv}", HdrInfo.FormatDolbyVision(track.DvProfile, track.DvLayer), StringComparison.OrdinalIgnoreCase)
             .Replace("{description}", TrackDescription(track.Name), StringComparison.OrdinalIgnoreCase)
             .Replace("{channels}", track.GetChannelLayout() ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{trackname}", track.Name ?? "", StringComparison.OrdinalIgnoreCase)
@@ -1376,7 +1396,9 @@ public static class MediaFileExtensions
                 // ClearVideoTrackNames means "strip the title". ApplyProfileMutations
                 // sets Name=null on the snapshot which would map to plan Name=null
                 // ("no opinion"). Switch to "" so the diff carries an explicit clear.
-                if (t.Type == MediaTrackType.Video && profile.ClearVideoTrackNames)
+                var videoNamed = t.Type == MediaTrackType.Video
+                                 && profile.VideoSettings is { StandardizeTrackNames: true };
+                if (t.Type == MediaTrackType.Video && (profile.ClearVideoTrackNames || videoNamed) && tt.Name == null)
                 {
                     tt.Name = "";
                 }

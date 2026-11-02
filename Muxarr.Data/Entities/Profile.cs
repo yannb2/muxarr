@@ -126,6 +126,13 @@ public class Profile : AuditableEntity
     public bool SkipHardlinkedFiles { get; set; }
     public TrackSettings AudioSettings { get; set; } = new();
     public TrackSettings SubtitleSettings { get; set; } = new();
+
+    /// <summary>
+    /// Video track naming. Only <see cref="TrackSettings.StandardizeTrackNames"/>,
+    /// <see cref="TrackSettings.TrackNameTemplate"/> and <see cref="TrackSettings.CodecNames"/>
+    /// apply; a standardized name wins over <see cref="ClearVideoTrackNames"/>.
+    /// </summary>
+    public TrackSettings VideoSettings { get; set; } = new();
     public ICollection<MediaFile> MediaFiles { get; set; } = new List<MediaFile>();
 }
 
@@ -248,6 +255,9 @@ public class ProfileConfiguration : AuditEntityConfiguration<Profile>
             .HasJsonConversion();
 
         builder.Property(e => e.SubtitleSettings)
+            .HasJsonConversion();
+
+        builder.Property(e => e.VideoSettings)
             .HasJsonConversion();
     }
 }

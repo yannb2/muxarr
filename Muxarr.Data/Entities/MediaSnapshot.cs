@@ -48,6 +48,12 @@ public class TrackSnapshot : IMediaTrack
     public string Codec { get; set; } = string.Empty;
     public int AudioChannels { get; set; }
     public AudioFeature AudioFeature { get; set; }
+
+    // Video only. HDR10/HLG from the base layer, Dolby Vision profile ("7",
+    // "8.1") from the DOVI record, FEL/MEL from dovi_tool. Null when absent.
+    public string? HdrFormat { get; set; }
+    public string? DvProfile { get; set; }
+    public string? DvLayer { get; set; }
     public string LanguageCode { get; set; } = string.Empty;
     public string LanguageName { get; set; } = string.Empty;
     public string? Name { get; set; } = string.Empty;
@@ -120,6 +126,15 @@ public class TrackSnapshotConfiguration : IEntityTypeConfiguration<TrackSnapshot
         builder.Property(e => e.AudioFeature)
             .HasConversion<string>()
             .HasMaxLength(20);
+
+        builder.Property(e => e.HdrFormat)
+            .HasMaxLength(20);
+
+        builder.Property(e => e.DvProfile)
+            .HasMaxLength(10);
+
+        builder.Property(e => e.DvLayer)
+            .HasMaxLength(10);
 
         builder.Property(e => e.LanguageCode)
             .HasMaxLength(20);
