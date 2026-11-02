@@ -68,7 +68,7 @@
 
     <div class="mb-3">
         <label class="form-label">Triggers</label>
-        <div class="d-flex gap-3">
+        <div class="d-flex flex-wrap column-gap-3">
             @foreach (var trigger in TriggerOptions)
             {
                 var id = $"notif-{trigger}";
@@ -81,7 +81,9 @@
             }
         </div>
         <small class="form-text text-muted">Queue finished sends one message when the queue runs empty, with the
-            totals of that batch. Use it instead of Completed to refresh a media server once instead of per file.</small>
+            totals of that batch. Use it instead of Completed to refresh a media server once instead of per file.
+            Scan warning fires when a scan finds a file ffprobe can't read, or newly flags a problem with one (at
+            most five per 10 minutes; the rest are only logged).</small>
     </div>
 
     <div class="d-flex justify-content-between mt-4">
@@ -124,7 +126,8 @@
     private bool _testSuccess;
 
     private static readonly NotificationEventType[] TriggerOptions =
-        [NotificationEventType.Started, NotificationEventType.Completed, NotificationEventType.Failed, NotificationEventType.QueueFinished];
+        [NotificationEventType.Started, NotificationEventType.Completed, NotificationEventType.Failed, NotificationEventType.QueueFinished,
+         NotificationEventType.ScanWarning];
 
     private NotificationProvider? CurrentProvider =>
         NotificationService.Providers.FirstOrDefault(p => p.Type == Config.Provider);

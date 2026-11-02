@@ -52,6 +52,9 @@ public class MediaScannerService(
 
     public event Action<bool>? ScanningStateChanged;
 
+    /// <summary>Raised when a scan finds a file ffprobe cannot read, or newly flags a problem with one.</summary>
+    public event Action<ScanWarningEvent>? ScanWarningFound;
+
     protected override async Task ExecuteAsync(CancellationToken token)
     {
         ReloadConfig();
@@ -449,14 +452,20 @@ public class MediaScannerService(
             // ReSharper disable once EntityFramework.NPlusOne.IncompleteDataUsage
             if (forceRescan || dbFile.NeedsFileProbe(fileInfo))
             {
+                var hadWarning = dbFile.HasScanWarning;
                 var probe = await dbFile.SetFileDataFromFFprobe();
                 if (probe.Result == null)
                 {
                     logger.LogWarning("ffprobe failed for '{Path}': {Error}", dbFile.Path, probe.Error);
+                    RaiseScanWarning(new ScanWarningEvent(dbFile.Path, probe.Error, true));
                 }
                 else if (dbFile.HasScanWarning)
                 {
                     logger.LogInformation("ffprobe warning for '{Path}': {Warning}", dbFile.Path, probe.Error);
+                    if (!hadWarning)
+                    {
+                        RaiseScanWarning(new ScanWarningEvent(dbFile.Path, probe.Error, false));
+                    }
                 }
 
                 ApplyProfileFlags(dbFile, profile);
@@ -468,6 +477,18 @@ public class MediaScannerService(
             dbFile.FileCreationTime = fileInfo.CreationTime.ToUniversalTime();
 
             await context.SaveChangesAsync();
+        }
+    }
+
+    private void RaiseScanWarning(ScanWarningEvent e)
+    {
+        try
+        {
+            ScanWarningFound?.Invoke(e);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "A scan warning listener failed for '{Path}'", e.Path);
         }
     }
 
@@ -538,3 +559,6 @@ public class MediaScannerService(
 }
 
 public record ScanDirectory(string Path, bool ForceRescan, Profile Profile);
+
+/// <summary>A file a scan could not read (<see cref="ProbeFailed"/>), or read with a problem flagged.</summary>
+public sealed record ScanWarningEvent(string Path, string? Message, bool ProbeFailed);

@@ -30,5 +30,9 @@ public enum NotificationEventType
     Test = 1 << 3,
 
     [Display(Name = "Queue finished")]
-    QueueFinished = 1 << 4
+    QueueFinished = 1 << 4,
+
+    /// <summary>A scan found a file ffprobe could not read, or newly flagged a problem with it.</summary>
+    [Display(Name = "Scan warning")]
+    ScanWarning = 1 << 5
 }
