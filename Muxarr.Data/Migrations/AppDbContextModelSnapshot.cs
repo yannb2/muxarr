@@ -535,6 +535,10 @@ namespace Muxarr.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("SnapshotId")
                         .HasColumnType("INTEGER");
 

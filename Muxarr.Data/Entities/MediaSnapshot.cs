@@ -102,6 +102,9 @@ public class TrackSnapshot : IMediaTrack
     public string? HdrFormat { get; set; }
     public string? DvProfile { get; set; }
     public string? DvLayer { get; set; }
+
+    // Video only: "3840x2160" from the stream; {resolution} writes it as "2160p".
+    public string? Resolution { get; set; }
     public string LanguageCode { get; set; } = string.Empty;
     public string LanguageName { get; set; } = string.Empty;
     public string? Name { get; set; } = string.Empty;
@@ -183,6 +186,9 @@ public class TrackSnapshotConfiguration : IEntityTypeConfiguration<TrackSnapshot
 
         builder.Property(e => e.DvLayer)
             .HasMaxLength(10);
+
+        builder.Property(e => e.Resolution)
+            .HasMaxLength(20);
 
         builder.Property(e => e.LanguageCode)
             .HasMaxLength(20);

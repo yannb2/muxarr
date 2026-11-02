@@ -33,6 +33,13 @@ namespace Muxarr.Data.Migrations
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
+                name: "Resolution",
+                table: "TrackSnapshot",
+                type: "TEXT",
+                maxLength: 20,
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
                 name: "VideoSettings",
                 table: "Profile",
                 type: "TEXT",
@@ -53,6 +60,10 @@ namespace Muxarr.Data.Migrations
 
             migrationBuilder.DropColumn(
                 name: "HdrFormat",
+                table: "TrackSnapshot");
+
+            migrationBuilder.DropColumn(
+                name: "Resolution",
                 table: "TrackSnapshot");
 
             migrationBuilder.DropColumn(

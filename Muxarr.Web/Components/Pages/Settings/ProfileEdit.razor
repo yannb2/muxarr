@@ -121,7 +121,8 @@
                                 <InputText id="videoTrackNameTemplate" class="form-control form-control-sm"
                                            @bind-Value="_profile.VideoSettings.TrackNameTemplate"/>
                                 <small class="form-text text-muted d-block">
-                                    Placeholders: <code>{codec}</code>, <code>{hdr}</code> (HDR10, HDR10+, HLG),
+                                    Placeholders: <code>{codec}</code>, <code>{resolution}</code> (2160p, 1080p),
+                                    <code>{hdr}</code> (HDR10, HDR10+, HLG),
                                     <code>{dv}</code> (Dolby Vision Profile 7 FEL), <code>{dvprofile}</code> (7, 8.1),
                                     <code>{dvlayer}</code> (FEL, MEL), <code>{trackname}</code>.
                                     FEL/MEL needs dovi_tool, which the image includes. Leave empty to clear video track
@@ -306,10 +307,10 @@
 
     private static readonly List<TrackSnapshot> VideoPreviewTracks =
     [
-        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "7", DvLayer = HdrInfo.Fel },
-        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "8.1" },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "7", DvLayer = HdrInfo.Fel, Resolution = "3840x2160" },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "8.1", Resolution = "3840x1600" },
         new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10 },
-        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Avc) }
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Avc), Resolution = "1920x1080" }
     ];
 
     private void OnStandardizeVideoToggled()

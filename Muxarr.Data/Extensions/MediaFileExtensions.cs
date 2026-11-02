@@ -101,6 +101,7 @@ public static class MediaFileExtensions
                 AudioChannels = x.Properties.AudioChannels,
                 Codec = CodecExtensions.ParseCodec(x.Codec),
                 Name = x.Properties.TrackName,
+                Resolution = x.Type.ToMediaTrackType() == MediaTrackType.Video ? x.Properties.PixelDimensions : null,
                 Index = x.Id
             };
 
@@ -232,6 +233,9 @@ public static class MediaFileExtensions
                 HdrFormat = type == MediaTrackType.Video ? HdrInfo.ParseHdrFormat(stream.ColorTransfer) : null,
                 DvProfile = type == MediaTrackType.Video
                     ? HdrInfo.ParseDvProfile(HdrInfo.FindDoviRecord(stream.SideDataList))
+                    : null,
+                Resolution = type == MediaTrackType.Video && stream is { Width: > 0, Height: > 0 }
+                    ? $"{stream.Width}x{stream.Height}"
                     : null,
                 IsDefault = disposition.Default == 1,
                 IsForced = disposition.Forced == 1 || TrackNameFlags.ContainsForced(trackName),
@@ -1255,6 +1259,7 @@ public static class MediaFileExtensions
             .Replace("{codec}", CodecNames.Resolve(track, codecNames), StringComparison.OrdinalIgnoreCase)
             .Replace("{object}", track.AudioFeature.DisplayName(), StringComparison.OrdinalIgnoreCase)
             .Replace("{hdr}", CodecNames.Rename(track.HdrFormat, codecNames), StringComparison.OrdinalIgnoreCase)
+            .Replace("{resolution}", ResolutionLabel.From(track.Resolution), StringComparison.OrdinalIgnoreCase)
             .Replace("{dvprofile}", track.DvProfile ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{dvlayer}", dvLayer, StringComparison.OrdinalIgnoreCase)
             .Replace("{dv}", HdrInfo.FormatDolbyVision(track.DvProfile, dvLayer, dolbyVisionTemplate),

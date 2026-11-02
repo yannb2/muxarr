@@ -15,6 +15,7 @@ public interface IMediaTrack
     string? HdrFormat { get; }
     string? DvProfile { get; }
     string? DvLayer { get; }
+    string? Resolution { get; }
     long DurationMs { get; }
     bool IsDefault { get; }
     bool IsForced { get; }

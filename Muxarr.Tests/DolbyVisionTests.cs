@@ -185,6 +185,32 @@ public class DolbyVisionTests
     // --- Video track names ---
 
     [TestMethod]
+    [DataRow("3840x2160", "2160p")]
+    [DataRow("3840x1600", "2160p")]
+    [DataRow("1920x1080", "1080p")]
+    [DataRow("1920x800", "1080p")]
+    [DataRow("1280x720", "720p")]
+    [DataRow("720x576", "576p")]
+    [DataRow("720x480", "480p")]
+    [DataRow("", "")]
+    [DataRow("garbage", "")]
+    public void ResolutionLabel_UsesWidthForCroppedFilms(string dimensions, string expected)
+    {
+        Assert.AreEqual(expected, ResolutionLabel.From(dimensions));
+    }
+
+    [TestMethod]
+    public void Template_ResolutionToken()
+    {
+        var track = DvVideo("7", HdrInfo.Fel);
+        track.Resolution = "3840x1608";
+
+        Assert.AreEqual("HEVC 2160p DV P7 FEL HDR10", track.ApplyTrackNameTemplate("{codec} {resolution} {dv} {hdr}",
+            new Dictionary<string, string> { ["H.265 / HEVC"] = "HEVC" }, "DV P{dvprofile} {dvlayer}"));
+        Assert.AreEqual("H.265 / HEVC", Video(0).ApplyTrackNameTemplate("{codec} {resolution}"));
+    }
+
+    [TestMethod]
     public void Template_VideoTokens()
     {
         var track = DvVideo("7", HdrInfo.Fel);

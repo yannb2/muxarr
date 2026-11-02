@@ -60,6 +60,7 @@ public class TrackPlan : IMediaTrack
     string? IMediaTrack.HdrFormat => null;
     string? IMediaTrack.DvProfile => null;
     string? IMediaTrack.DvLayer => null;
+    string? IMediaTrack.Resolution => null;
     long IMediaTrack.DurationMs => 0;
     bool IMediaTrack.IsDefault => IsDefault ?? false;
     bool IMediaTrack.IsForced => IsForced ?? false;
