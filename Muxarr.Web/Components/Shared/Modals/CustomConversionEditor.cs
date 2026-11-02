@@ -27,6 +27,7 @@ public class CustomConversionEditor
     {
         _file = file;
         _tracks = file.Snapshot.Tracks.Select(t => t.ToSnapshot()).ToList();
+        _tracks.AttachOriginalNames(file.OriginalTrackNames, file.Snapshot.Tracks);
         FileTitle = file.Snapshot.Title ?? "";
 
         // Start from raw file state: every track kept, no mutations applied.
@@ -58,6 +59,23 @@ public class CustomConversionEditor
     public string CurrentFileTitle => _file.Snapshot.Title ?? "";
 
     public IReadOnlyList<IsoLanguage> Languages { get; }
+
+    /// <summary>The name the track arrived with, when the backup has one that differs from the name now.</summary>
+    public string? OriginalNameOf(TrackSnapshot track)
+    {
+        return string.IsNullOrWhiteSpace(track.OriginalName) || track.OriginalName == track.Name
+            ? null
+            : track.OriginalName;
+    }
+
+    /// <summary>Puts the original name back as the track's name, to edit from there.</summary>
+    public void UseOriginalName(TrackSnapshot track)
+    {
+        if (OriginalNameOf(track) is { } original)
+        {
+            track.Name = original;
+        }
+    }
 
     public bool IsSelected(TrackSnapshot track)
     {

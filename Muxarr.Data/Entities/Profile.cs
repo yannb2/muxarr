@@ -75,7 +75,15 @@ public enum DefaultTrackStrategy
     /// Subtitles only: clears the default flag on every track that is not forced, and leaves
     /// forced tracks as they are. A full subtitle never turns itself on.
     /// </summary>
-    ForcedOnly
+    ForcedOnly,
+
+    /// <summary>
+    /// Subtitles only: as <see cref="ForcedOnly"/>, except when the default audio is not in the
+    /// first subtitle language and no forced track in that language exists. Then the best full
+    /// subtitle in that language becomes the default, so a foreign-language film plays with
+    /// subtitles on every player.
+    /// </summary>
+    ForcedOrForeignAudio
 }
 
 public enum TrackFlag
@@ -124,6 +132,12 @@ public class Profile : AuditableEntity
     public bool RemoveChapters { get; set; }
     public bool TrimToVideoLength { get; set; }
     public bool SkipHardlinkedFiles { get; set; }
+
+    /// <summary>
+    /// Keep the audio and subtitle names each file arrived with, in a hidden
+    /// <c>.muxarr-tracks.json</c> next to it and in the database.
+    /// </summary>
+    public bool BackupTrackNames { get; set; }
     public TrackSettings AudioSettings { get; set; } = new();
     public TrackSettings SubtitleSettings { get; set; } = new();
 
@@ -255,6 +269,10 @@ public class ProfileConfiguration : AuditEntityConfiguration<Profile>
             .HasDefaultValue(false);
 
         builder.Property(e => e.SkipHardlinkedFiles)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(e => e.BackupTrackNames)
             .IsRequired()
             .HasDefaultValue(false);
 

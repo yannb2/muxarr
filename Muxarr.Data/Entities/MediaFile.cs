@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Muxarr.Data.Extensions;
 
 namespace Muxarr.Data.Entities;
 
@@ -19,6 +20,12 @@ public class MediaFile : AuditableEntity, IHasId
     public bool IsHardlinked { get; set; }
     public DateTime FileLastWriteTime { get; set; }
     public DateTime FileCreationTime { get; set; }
+
+    /// <summary>
+    /// The track names the file arrived with, when its profile backs them up.
+    /// Mirrors its entry in the folder's <see cref="Extensions.TrackNameBackups.SidecarName"/>.
+    /// </summary>
+    public TrackNameBackup? OriginalTrackNames { get; set; }
 
     public bool NeedsWork => HasRedundantTracks || HasNonStandardMetadata || HasRemovableChapters;
 
@@ -73,6 +80,9 @@ public class MediaFileConfiguration : AuditEntityConfiguration<MediaFile>
         builder.Property(e => e.IsHardlinked)
             .IsRequired()
             .HasDefaultValue(false);
+
+        builder.Property(e => e.OriginalTrackNames)
+            .HasJsonConversion();
 
         builder.HasOne(m => m.Snapshot)
             .WithMany()

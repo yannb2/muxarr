@@ -1,0 +1,48 @@
+using Muxarr.Core.Models;
+
+namespace Muxarr.Data.Entities;
+
+/// <summary>
+/// The track names a file arrived with, before any profile renamed them. Kept in
+/// the database (<see cref="MediaFile.OriginalTrackNames"/>) and in a hidden
+/// file next to the media (<see cref="TrackNameSidecar"/>), so the names survive
+/// a database reset and a rename by Radarr or Sonarr.
+/// </summary>
+public class TrackNameBackup
+{
+    /// <summary>File name (no folder) the entry was last seen under.</summary>
+    public string FileName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Size in bytes when last seen. A rename by an arr keeps it, an upgrade to a
+    /// new release does not, so it tells the two apart.
+    /// </summary>
+    public long Size { get; set; }
+
+    public long DurationMs { get; set; }
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastSeen { get; set; }
+    public List<OriginalTrack> Tracks { get; set; } = [];
+}
+
+/// <summary>One track as it was in the original file.</summary>
+public class OriginalTrack
+{
+    public int Index { get; set; }
+    public MediaTrackType Type { get; set; }
+    public string Codec { get; set; } = string.Empty;
+    public string LanguageCode { get; set; } = string.Empty;
+    public string LanguageName { get; set; } = string.Empty;
+    public int AudioChannels { get; set; }
+    public bool IsForced { get; set; }
+    public bool IsHearingImpaired { get; set; }
+    public bool IsCommentary { get; set; }
+    public string? Name { get; set; }
+}
+
+/// <summary>The hidden <c>.muxarr-tracks.json</c> file, one per folder.</summary>
+public class TrackNameSidecar
+{
+    public int Version { get; set; } = 1;
+    public List<TrackNameBackup> Files { get; set; } = [];
+}

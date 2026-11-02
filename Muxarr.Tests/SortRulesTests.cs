@@ -166,4 +166,68 @@ public class SortRulesTests
 
         Assert.AreNotEqual(false, audio.IsDefault);
     }
+
+    // --- Forced only, or full subtitles for foreign audio ---
+
+    private static Dictionary<int, TrackPlan> ForeignAudioDefaults(string audioLanguage, params TrackSnapshot[] subs)
+    {
+        var settings = YannsSubtitleSettings();
+        settings.DefaultStrategy = DefaultTrackStrategy.ForcedOrForeignAudio;
+        var profile = new Profile
+        {
+            AudioSettings = new TrackSettings { Enabled = false },
+            SubtitleSettings = settings
+        };
+
+        var file = MakeFile(audioLanguage, [Audio(1, audioLanguage, isDefault: true), ..subs]);
+        return file.BuildTargetFromProfile(profile).Tracks
+            .Where(t => t.Type == MediaTrackType.Subtitles)
+            .ToDictionary(t => t.Index);
+    }
+
+    [TestMethod]
+    public void DefaultFlag_ForeignAudio_BestFullSubtitleInFirstLanguage()
+    {
+        var srt = Sub(2, "English", nameof(SubtitleCodec.Srt));
+        srt.IsDefault = true;
+
+        var subs = ForeignAudioDefaults("Japanese",
+            srt,
+            Sub(3, "English", nameof(SubtitleCodec.Pgs)),
+            Sub(4, "English", nameof(SubtitleCodec.Pgs), hi: true),
+            Sub(5, "French", nameof(SubtitleCodec.Pgs)));
+
+        Assert.AreEqual(true, subs[3].IsDefault, "PGS before SRT, SDH only as a last resort");
+        Assert.AreEqual(false, subs[2].IsDefault);
+        Assert.AreNotEqual(true, subs[4].IsDefault);
+        Assert.AreNotEqual(true, subs[5].IsDefault);
+    }
+
+    [TestMethod]
+    public void DefaultFlag_ForeignAudio_SdhWhenItIsAllThereIs()
+    {
+        var subs = ForeignAudioDefaults("Japanese", Sub(2, "English", nameof(SubtitleCodec.Pgs), hi: true));
+
+        Assert.AreEqual(true, subs[2].IsDefault);
+    }
+
+    [TestMethod]
+    public void DefaultFlag_ForeignAudio_ForcedTrackInFirstLanguageWins()
+    {
+        var forced = Sub(2, "English", nameof(SubtitleCodec.Pgs), forced: true);
+        forced.IsDefault = true;
+
+        var subs = ForeignAudioDefaults("Japanese", forced, Sub(3, "English", nameof(SubtitleCodec.Pgs)));
+
+        Assert.AreNotEqual(false, subs[2].IsDefault);
+        Assert.AreNotEqual(true, subs[3].IsDefault);
+    }
+
+    [TestMethod]
+    public void DefaultFlag_ForeignAudio_NothingWhenAudioIsInFirstLanguage()
+    {
+        var subs = ForeignAudioDefaults("English", Sub(2, "English", nameof(SubtitleCodec.Pgs)));
+
+        Assert.AreNotEqual(true, subs[2].IsDefault);
+    }
 }

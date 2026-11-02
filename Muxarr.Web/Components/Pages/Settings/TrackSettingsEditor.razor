@@ -110,6 +110,10 @@
             @if (!IsAudio)
             {
                 <option value="@nameof(DefaultTrackStrategy.ForcedOnly)">Only forced subtitles can be default</option>
+                <option value="@nameof(DefaultTrackStrategy.ForcedOrForeignAudio)"
+                        disabled="@(!HasLanguagePriority)">
+                    Forced only, or full subtitles for foreign audio@(!HasLanguagePriority ? " (set up allowed languages first)" : "")
+                </option>
             }
         </select>
         <small class="form-text text-muted d-block">
@@ -127,6 +131,11 @@
                 case DefaultTrackStrategy.ForcedOnly:
                     <text>Clears the default flag on every subtitle that isn't forced. Forced subtitles keep their
                         flag, so full subtitles never turn themselves on.</text>
+                    break;
+                case DefaultTrackStrategy.ForcedOrForeignAudio:
+                    <text>Like "Only forced", but when the default audio isn't in your first language and there is no
+                        forced subtitle in it, the best full subtitle in your first language becomes the default
+                        (the one your sort rules put first; SDH only if nothing else).</text>
                     break;
                 default:
                     <text>Original default flags from the source file are preserved.</text>
@@ -262,6 +271,8 @@
                 <code>{trackname}</code>, <code>{description}</code>,
                 <code>{hi}</code>, <code>{forced}</code>, <code>{commentary}</code>, <code>{visualimpaired}</code>,
                 <code>{original}</code>, <code>{dub}</code>, <code>{flags}</code>.
+                <code>{originalname}</code> is the name the track arrived with (needs the track name backup in
+                General).
                 <code>{code}</code> is the language code (FR-CA), <code>{variant}</code> the regional marker (VFQ).
                 @if (IsAudio)
                 {
