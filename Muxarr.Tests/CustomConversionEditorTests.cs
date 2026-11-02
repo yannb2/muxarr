@@ -104,6 +104,23 @@ public class CustomConversionEditorTests
         Assert.AreEqual("French (Canada)", editor.Tracks.First(t => t.Index == 1).Name);
     }
 
+    [TestMethod]
+    public void SetLanguage_OnVideo_ChangesOnlyTheLanguage()
+    {
+        var file = MakeFile("French", Video(0, "HEVC Dolby Vision Profile 7 FEL HDR10"), Audio(1, "French"));
+        file.Snapshot.ContainerType = "Matroska";
+        var editor = new CustomConversionEditor(file);
+        var video = editor.Tracks.First(t => t.Type == MediaTrackType.Video);
+
+        editor.SetLanguage(video, "French (Canada)");
+
+        Assert.AreEqual("French (Canada)", video.LanguageName);
+        Assert.AreEqual(IsoLanguage.Find("French (Canada)").WriteCode, video.LanguageCode);
+        Assert.AreEqual("HEVC Dolby Vision Profile 7 FEL HDR10", video.Name);
+        var plan = editor.Build().Tracks.Single(t => t.Type == MediaTrackType.Video);
+        Assert.AreEqual(video.LanguageCode, plan.LanguageCode);
+    }
+
     // Until one is applied, names belong to the profile the file is assigned to,
     // which is the one that re-plans it after the conversion. Not the profile the
     // page happens to be previewing.
