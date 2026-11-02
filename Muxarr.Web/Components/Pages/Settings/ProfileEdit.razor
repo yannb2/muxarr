@@ -106,11 +106,13 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label" for="extrasStrategy">Extras folders</label>
-                            <InputSelect id="extrasStrategy" class="form-select" @bind-Value="_profile.Extras">
-                                <option value="@ExtrasStrategy.Process">Same rules as the main files</option>
-                                <option value="@ExtrasStrategy.KeepAllTracks">Keep every track, only tidy names and flags</option>
-                                <option value="@ExtrasStrategy.Skip">Skip them</option>
-                            </InputSelect>
+                            <select id="extrasStrategy" class="form-select form-select-sm" style="max-width: 320px;"
+                                    value="@_profile.Extras"
+                                    @onchange="e => _profile.Extras = Enum.Parse<ExtrasStrategy>(e.Value?.ToString() ?? nameof(ExtrasStrategy.Process))">
+                                <option value="@nameof(ExtrasStrategy.Process)">Same rules as the main files</option>
+                                <option value="@nameof(ExtrasStrategy.KeepAllTracks)">Keep every track, only tidy names and flags</option>
+                                <option value="@nameof(ExtrasStrategy.Skip)">Skip them</option>
+                            </select>
                             <small class="form-text text-muted d-block">Files in Jellyfin extras folders
                                 (<code>Featurettes</code>, <code>Behind The Scenes</code>, <code>Deleted Scenes</code>,
                                 <code>Interviews</code>, <code>Scenes</code>, <code>Shorts</code>, <code>Clips</code>,
@@ -152,13 +154,13 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label" for="videoLanguage">Video track language</label>
-                            <InputSelect id="videoLanguage" class="form-select"
-                                         @bind-Value="_profile.VideoSettings.VideoLanguage">
-                                <option value="@VideoLanguageMode.Leave">Leave as is</option>
-                                <option value="@VideoLanguageMode.OriginalLanguage">Original language (from
-                                    Radarr/Sonarr)</option>
-                                <option value="@VideoLanguageMode.Undetermined">Undetermined (und)</option>
-                            </InputSelect>
+                            <select id="videoLanguage" class="form-select form-select-sm" style="max-width: 320px;"
+                                    value="@_profile.VideoSettings.VideoLanguage"
+                                    @onchange="e => _profile.VideoSettings.VideoLanguage = Enum.Parse<VideoLanguageMode>(e.Value?.ToString() ?? nameof(VideoLanguageMode.Leave))">
+                                <option value="@nameof(VideoLanguageMode.Leave)">Leave as is</option>
+                                <option value="@nameof(VideoLanguageMode.OriginalLanguage)">Original language (Radarr/Sonarr)</option>
+                                <option value="@nameof(VideoLanguageMode.Undetermined)">Undetermined (und)</option>
+                            </select>
                             <small class="form-text text-muted d-block">Players don't use it; it's for tidy media
                                 info. Original language follows what Blu-ray discs do, and files without a known
                                 original language are left alone. Changes are a quick in-place edit, not a
