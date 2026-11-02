@@ -1,0 +1,93 @@
+name: Upstream Sync
+
+# Once a week, checks KirovAir/muxarr for new commits and opens (or updates)
+# a pull request that merges them into this fork's master. Nothing merges on
+# its own: conflicts and review happen on the pull request.
+#
+# Needs Settings > Actions > General > "Allow GitHub Actions to create and
+# approve pull requests" turned on, or the PR step fails.
+
+on:
+    schedule:
+        # Mondays 09:00 UTC.
+        -   cron: '0 9 * * 1'
+    workflow_dispatch:
+
+permissions:
+    contents: write
+    pull-requests: write
+    actions: write
+
+concurrency:
+    group: upstream-sync
+    cancel-in-progress: false
+
+env:
+    UPSTREAM: https://github.com/KirovAir/muxarr.git
+    SYNC_BRANCH: upstream-sync
+
+jobs:
+    sync:
+        if: github.repository == 'yannb2/muxarr'
+        runs-on: ubuntu-24.04
+        steps:
+            -   name: Checkout master
+                uses: actions/checkout@v7
+                with:
+                    ref: master
+                    fetch-depth: 0
+
+            -   name: Fetch upstream
+                id: upstream
+                run: |
+                    git remote add upstream "$UPSTREAM"
+                    branch=$(git ls-remote --symref upstream HEAD | awk '/^ref:/ { sub("refs/heads/", "", $2); print $2 }')
+                    git fetch --no-tags upstream "$branch"
+                    new=$(git rev-list --count origin/master..FETCH_HEAD)
+                    echo "branch=$branch" >> "$GITHUB_OUTPUT"
+                    echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
+                    echo "new=$new" >> "$GITHUB_OUTPUT"
+                    echo "Upstream $branch has $new commit(s) not in master."
+
+            -   name: Push the sync branch
+                if: steps.upstream.outputs.new != '0'
+                run: |
+                    # The branch is upstream as it is; the merge happens on the PR,
+                    # so GitHub shows any conflict with the fork's own changes.
+                    git push --force origin "${{ steps.upstream.outputs.sha }}:refs/heads/$SYNC_BRANCH"
+
+            -   name: Open or update the pull request
+                if: steps.upstream.outputs.new != '0'
+                env:
+                    GH_TOKEN: ${{ github.token }}
+                    NEW: ${{ steps.upstream.outputs.new }}
+                    UPSTREAM_BRANCH: ${{ steps.upstream.outputs.branch }}
+                    SHA: ${{ steps.upstream.outputs.sha }}
+                run: |
+                    log=$(git log --no-merges --format='- %s (%h)' "origin/master..$SHA")
+                    {
+                        echo "Merges $NEW new commit(s) from KirovAir/muxarr \`$UPSTREAM_BRANCH\` (${SHA:0:7}) into the fork."
+                        echo
+                        echo "Merge with **Create a merge commit**. If GitHub reports conflicts, resolve them here or on a local branch; the fork's own changes win unless upstream fixed the same thing."
+                        echo
+                        echo "### Upstream commits"
+                        echo
+                        echo "$log" | head -n 100
+                    } > body.md
+
+                    existing=$(gh pr list --head "$SYNC_BRANCH" --base master --state open --json number --jq '.[0].number // empty')
+                    if [ -n "$existing" ]; then
+                        gh pr edit "$existing" --title "Sync upstream ($NEW new commits)" --body-file body.md
+                        echo "Updated PR #$existing"
+                    else
+                        gh pr create --head "$SYNC_BRANCH" --base master \
+                            --title "Sync upstream ($NEW new commits)" --body-file body.md
+                    fi
+
+            # Pull requests opened with the workflow token don't start other
+            # workflows, so start the tests on the sync branch explicitly.
+            -   name: Run the tests on the sync branch
+                if: steps.upstream.outputs.new != '0'
+                env:
+                    GH_TOKEN: ${{ github.token }}
+                run: gh workflow run build-and-deploy.yml --ref "$SYNC_BRANCH"
