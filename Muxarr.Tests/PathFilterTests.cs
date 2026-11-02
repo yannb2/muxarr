@@ -16,6 +16,7 @@ public class PathFilterTests
     [DataRow("/media/@eaDir/thumb.mkv")]
     [DataRow("/media/#recycle/old.mp4")]
     [DataRow("/media/@Recycle/old.mp4")]
+    [DataRow("/movies/live-action/.recycle/Movie (2026)/Movie (2026).mkv")]
     [DataRow("/media/.@__thumb/poster.mp4")]
     [DataRow("/media/$RECYCLE.BIN/file.mkv")]
     [DataRow("/media/System Volume Information/file.mkv")]
@@ -91,5 +92,47 @@ public class PathFilterTests
     public void IsExtra_ReturnsFalse(string path)
     {
         Assert.IsFalse(PathFilter.IsExtra(P(path)));
+    }
+
+    // --- User excluded folders ---
+
+    private static readonly string[] Excluded = [".snapshots", "Old Rips", "/movies/other/incoming/"];
+
+    [TestMethod]
+    [DataRow("/movies/live-action/.snapshots/Movie (2026)/Movie (2026).mkv")]
+    [DataRow("/movies/live-action/old rips/Movie.mkv")]
+    [DataRow("/movies/other/incoming/Movie.mkv")]
+    [DataRow("/movies/other/incoming/sub/Movie.mkv")]
+    public void Excluded_ReturnsTrue(string path)
+    {
+        Assert.IsTrue(PathFilter.IsExcluded(P(path), Excluded));
+        Assert.IsTrue(PathFilter.ShouldIgnore(P(path), Excluded));
+    }
+
+    [TestMethod]
+    [DataRow("/movies/live-action/Movie (2026)/Movie (2026).mkv")]
+    [DataRow("/movies/other/incoming-done/Movie.mkv")]
+    [DataRow("/movies/other/Movie (2026)/incoming.mkv")]
+    [DataRow("/movies/live-action/.snapshots.mkv")]
+    [DataRow("/archive/movies/other/incoming/Movie.mkv")]
+    public void Excluded_ReturnsFalse(string path)
+    {
+        Assert.IsFalse(PathFilter.IsExcluded(P(path), Excluded));
+    }
+
+    [TestMethod]
+    public void Excluded_EmptyListExcludesNothing()
+    {
+        Assert.IsFalse(PathFilter.IsExcluded(P("/movies/a/b.mkv"), []));
+        Assert.IsFalse(PathFilter.IsExcluded(P("/movies/a/b.mkv"), null));
+        Assert.IsFalse(PathFilter.IsExcluded(P("/movies/a/b.mkv"), ["", "  ", "/"]));
+    }
+
+    [TestMethod]
+    public void ParseExcludedFolders_SkipsBlanksAndComments()
+    {
+        var parsed = PathFilter.ParseExcludedFolders(" .snapshots \r\n\n# old stuff\r\n/movies/other/incoming\n");
+
+        CollectionAssert.AreEqual(new[] { ".snapshots", "/movies/other/incoming" }, parsed);
     }
 }

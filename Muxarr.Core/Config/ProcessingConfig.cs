@@ -1,4 +1,5 @@
 using System.Text;
+using Muxarr.Core.Utilities;
 
 namespace Muxarr.Core.Config;
 
@@ -7,6 +8,17 @@ public class ProcessingConfig
     public int ScanIntervalMinutes { get; set; }
     public int ConversionTimeoutMinutes { get; set; } = 60;
     public bool QueueScannedFiles { get; set; }
+
+    /// <summary>
+    /// Folders the scan skips, one per line: a name ("Extras-old") matches anywhere in
+    /// the path, a full path ("/movies/other/incoming") only that folder.
+    /// </summary>
+    public string ExcludedFolders { get; set; } = string.Empty;
+
+    public List<string> GetExcludedFolders()
+    {
+        return PathFilter.ParseExcludedFolders(ExcludedFolders);
+    }
 
     public bool PostProcessingEnabled { get; set; }
     public string PostProcessingCommand { get; set; } = string.Empty;

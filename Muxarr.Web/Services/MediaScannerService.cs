@@ -202,6 +202,7 @@ public class MediaScannerService(
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var scanned = 0;
 
+        var excluded = Config.GetExcludedFolders();
         foreach (var file in Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories))
         {
             if (token.IsCancellationRequested)
@@ -209,7 +210,7 @@ public class MediaScannerService(
                 return;
             }
 
-            if (!SupportedExtensions.Contains(Path.GetExtension(file)) || PathFilter.ShouldIgnore(file))
+            if (!SupportedExtensions.Contains(Path.GetExtension(file)) || PathFilter.ShouldIgnore(file, excluded))
             {
                 continue;
             }
@@ -256,7 +257,7 @@ public class MediaScannerService(
     public async Task ScanFile(string filePath, bool forceRescan, Profile profile,
         string? webhookTitle = null, string? webhookOriginalLanguage = null)
     {
-        if (PathFilter.ShouldIgnore(filePath))
+        if (PathFilter.ShouldIgnore(filePath, Config.GetExcludedFolders()))
         {
             logger.LogDebug("Ignoring artifact file '{FilePath}'", filePath);
             return;
@@ -510,6 +511,8 @@ public class MediaScannerService(
                 string.Join(", ", inaccessible));
         }
 
+        var excluded = Config.GetExcludedFolders();
+
         // Project only Id/Path to avoid loading heavy JSON columns (Tracks, ProbeOutput) into memory
         var files = await context.MediaFiles
             .Select(f => new { f.Id, f.Path })
@@ -519,7 +522,7 @@ public class MediaScannerService(
             .Where(f =>
                 // Never purge files that live under an offline directory
                 !inaccessible.Any(dir => f.Path.StartsWith(dir)) &&
-                (PathFilter.ShouldIgnore(f.Path) ||
+                (PathFilter.ShouldIgnore(f.Path, excluded) ||
                  !File.Exists(f.Path) || !profiles.Any(p => p.Directories.Any(dir => f.Path.StartsWith(dir)))))
             .Select(f => f.Id)
             .ToList();
