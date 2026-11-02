@@ -11,6 +11,23 @@ public static class PathFilter
         "Samples"
     ];
 
+    // Jellyfin's extras folders. "other" is left out on purpose: it is a
+    // library category name too (/movies/other), and a false match there
+    // would treat whole movies as extras. Trailers and samples are ignored
+    // outright above.
+    private static readonly string[] ExtrasDirectories =
+    [
+        "behind the scenes",
+        "deleted scenes",
+        "interviews",
+        "scenes",
+        "shorts",
+        "featurettes",
+        "clips",
+        "extras",
+        "backdrops"
+    ];
+
     private static readonly string[] IgnoredFileNameSuffixes =
     [
         "trailer",
@@ -62,6 +79,12 @@ public static class PathFilter
         }
 
         return false;
+    }
+
+    /// <summary>True for a file inside one of Jellyfin's extras folders (featurettes, deleted scenes, ...).</summary>
+    public static bool IsExtra(string filePath)
+    {
+        return ContainsDirectorySegment(NormalizePath(filePath), ExtrasDirectories);
     }
 
     private static string NormalizePath(string path)

@@ -444,4 +444,50 @@ public class OutputValidatorTests
 
         StringAssert.Contains(ex.Message, "chapters");
     }
+
+    // --- Dolby Vision and HDR survive the remux ---
+
+    private static TrackSnapshot Dv(string? profile, string? layer, string? hdr = "HDR10")
+    {
+        return new TrackSnapshot
+        {
+            Index = 0, Type = MediaTrackType.Video, DvProfile = profile, DvLayer = layer, HdrFormat = hdr
+        };
+    }
+
+    [TestMethod]
+    public void DolbyVision_Kept_Passes()
+    {
+        var source = MediaWithTracks(10_000, Dv("7", "FEL"));
+        var actual = MediaWithTracks(10_000, Dv("7", "FEL"));
+
+        OutputValidator.ValidateVideoFormats(actual, source, Keeping(source.Snapshot.Tracks[0]));
+    }
+
+    [TestMethod]
+    [DataRow("7", "MEL", "HDR10", "layer")]
+    [DataRow("7", null, "HDR10", "layer")]
+    [DataRow("8.1", "FEL", "HDR10", "profile")]
+    [DataRow(null, null, "HDR10", "profile")]
+    [DataRow("7", "FEL", null, "SDR")]
+    public void DolbyVision_Lost_Throws(string? profile, string? layer, string? hdr, string expected)
+    {
+        var source = MediaWithTracks(10_000, Dv("7", "FEL"));
+        var actual = MediaWithTracks(10_000, Dv(profile, layer, hdr));
+
+        var ex = Assert.ThrowsExactly<Exception>(() =>
+            OutputValidator.ValidateVideoFormats(actual, source, Keeping(source.Snapshot.Tracks[0])));
+        StringAssert.Contains(ex.Message, expected);
+        StringAssert.Contains(ex.Message, "Refusing to replace the original");
+    }
+
+    [TestMethod]
+    public void DolbyVision_UnknownOnTheSource_IsNotHeldAgainstTheOutput()
+    {
+        // A snapshot from before detection existed knows nothing to protect.
+        var source = MediaWithTracks(10_000, Dv(null, null, null));
+        var actual = MediaWithTracks(10_000, Dv("7", "FEL"));
+
+        OutputValidator.ValidateVideoFormats(actual, source, Keeping(source.Snapshot.Tracks[0]));
+    }
 }

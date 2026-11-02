@@ -60,7 +60,7 @@ else
                     <TrackSettingsDisplay Settings="@profile.SubtitleSettings"/>
                 </div>
 
-                @if (profile.ClearVideoTrackNames || profile.ClearFileTitle || profile.RemoveChapters || profile.TrimToVideoLength || profile.SkipHardlinkedFiles || profile.BackupTrackNames)
+                @if (profile.ClearVideoTrackNames || profile.ClearFileTitle || profile.RemoveChapters || profile.TrimToVideoLength || profile.SkipHardlinkedFiles || profile.BackupTrackNames || profile.Extras != ExtrasStrategy.Process)
                 {
                     <div class="d-flex align-items-center gap-2 mt-2 pt-2 border-top">
                         @if (profile.ClearVideoTrackNames)
@@ -109,6 +109,14 @@ else
                             <ToolTip Tip="Original track names are kept in a hidden .muxarr-tracks.json per folder">
                                 <span class="badge text-bg-light border">
                                     <i class="bi bi-clock-history me-1"></i>Back up track names
+                                </span>
+                            </ToolTip>
+                        }
+                        @if (profile.Extras != ExtrasStrategy.Process)
+                        {
+                            <ToolTip Tip="@(profile.Extras == ExtrasStrategy.Skip ? "Files in extras folders are not scanned or converted" : "Files in extras folders keep all their tracks")">
+                                <span class="badge text-bg-light border">
+                                    <i class="bi bi-collection-play me-1"></i>Extras: @(profile.Extras == ExtrasStrategy.Skip ? "skipped" : "keep tracks")
                                 </span>
                             </ToolTip>
                         }

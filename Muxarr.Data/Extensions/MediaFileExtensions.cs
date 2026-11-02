@@ -569,6 +569,12 @@ public static class MediaFileExtensions
             return sourceTracks.ToList();
         }
 
+        // An extra the profile only tidies keeps every track, in source order.
+        if (p.Extras == ExtrasStrategy.KeepAllTracks && PathFilter.IsExtra(file.Path))
+        {
+            return sourceTracks.OrderBy(t => t.Index).ToList();
+        }
+
         var result = new List<TrackSnapshot>();
         result.AddRange(sourceTracks.GetVideoTracks());
         result.AddRange(GetAllowedTracks(sourceTracks.GetAudioTracks(), p.AudioSettings, file.OriginalLanguage));
@@ -635,6 +641,12 @@ public static class MediaFileExtensions
 
                 allowedTracks.Add(bestTracks.First());
             }
+
+            // 5. A track many players cannot decode gets a lossy partner in its language.
+            if (s.KeepCompatibilityTrack && tracks[0].Type == MediaTrackType.Audio)
+            {
+                allowedTracks = AddCompatibilityTracks(tracks, allowedTracks);
+            }
         }
 
         // --- Track reordering (independent of removal) ---
@@ -667,6 +679,50 @@ public static class MediaFileExtensions
         }
 
         return allowedTracks;
+    }
+
+    // Formats a TV, browser or phone usually cannot decode and so transcodes.
+    private static readonly HashSet<AudioCodec> NeedsCompatibilityTrack =
+    [
+        AudioCodec.TrueHd, AudioCodec.DtsHdMa, AudioCodec.DtsHdHra, AudioCodec.Dts, AudioCodec.DtsEs,
+        AudioCodec.Dts9624, AudioCodec.Flac, AudioCodec.Pcm
+    ];
+
+    // What those players can play, best first.
+    private static readonly AudioCodec[] CompatibilityCodecs = [AudioCodec.Eac3, AudioCodec.Ac3, AudioCodec.Aac];
+
+    /// <summary>
+    /// For each kept main track in a format many players cannot decode, keeps
+    /// the best E-AC-3/AC-3/AAC track of the same language when none is kept
+    /// already. Returns the tracks in source order.
+    /// </summary>
+    public static List<T> AddCompatibilityTracks<T>(List<T> tracks, List<T> allowed) where T : IMediaTrack
+    {
+        var result = allowed.ToList();
+        foreach (var main in allowed.Where(t => !t.IsCommentary && NeedsCompatibilityTrack.Contains(t.GetAudioCodec())))
+        {
+            bool Partner(T t) => !t.IsCommentary && !IsImpaired(t)
+                                 && SameBaseLanguage(t.LanguageName, main.LanguageName)
+                                 && CompatibilityCodecs.Contains(t.GetAudioCodec());
+
+            if (result.Any(Partner))
+            {
+                continue;
+            }
+
+            var partner = tracks
+                .Where(t => !result.Contains(t) && Partner(t))
+                .OrderBy(t => Array.IndexOf(CompatibilityCodecs, t.GetAudioCodec()))
+                .ThenByDescending(t => t.AudioChannels)
+                .ThenBy(t => t.Index)
+                .FirstOrDefault();
+            if (partner != null)
+            {
+                result.Add(partner);
+            }
+        }
+
+        return result.OrderBy(t => t.Index).ToList();
     }
 
     /// <summary>

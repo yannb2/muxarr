@@ -26,6 +26,7 @@ public static class ProfileExtensions
         clone.TrimToVideoLength = profile.TrimToVideoLength;
         clone.SkipHardlinkedFiles = profile.SkipHardlinkedFiles;
         clone.BackupTrackNames = profile.BackupTrackNames;
+        clone.Extras = profile.Extras;
         return clone;
     }
 }

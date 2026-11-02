@@ -38,6 +38,8 @@ public static class OutputValidator
             }
         }
 
+        ValidateVideoFormats(actual, source, target);
+
         var expectedDuration = ExpectedDurationMs(source, target, measuredEnds);
         if (expectedDuration > 0)
         {
@@ -68,6 +70,55 @@ public static class OutputValidator
         if (target.HasChapters == false && actual.Snapshot.HasChapters)
         {
             throw new Exception("Output still has chapters; removal did not apply.");
+        }
+    }
+
+    // A remux is a stream copy, so the HDR format, Dolby Vision profile and
+    // enhancement layer of every kept video track must come out as they went
+    // in. Losing the FEL of a profile 7 remux is silent in every player that
+    // does not use it, so it is caught here, before the original is replaced.
+    public static void ValidateVideoFormats(MediaFile actual, MediaFile source, ConversionPlan target)
+    {
+        var sourceByIndex = source.Snapshot.Tracks
+            .GroupBy(t => t.Index)
+            .ToDictionary(g => g.Key, g => g.First());
+        var keptVideo = target.Tracks
+            .Where(t => t.Type == MediaTrackType.Video)
+            .Select(t => sourceByIndex.GetValueOrDefault(t.Index))
+            .ToList();
+        var outputVideo = actual.Snapshot.Tracks.Where(t => t.Type == MediaTrackType.Video).ToList();
+
+        for (var i = 0; i < keptVideo.Count && i < outputVideo.Count; i++)
+        {
+            var before = keptVideo[i];
+            var after = outputVideo[i];
+            if (before == null)
+            {
+                continue;
+            }
+
+            // Only what the source is known to have: a snapshot from before
+            // detection existed has nulls, and a stream copy cannot add DV.
+            if (before.DvProfile != null && !string.Equals(before.DvProfile, after.DvProfile, StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    $"Output video track {i} has Dolby Vision profile '{after.DvProfile ?? "none"}', " +
+                    $"the source had '{before.DvProfile ?? "none"}'. Refusing to replace the original.");
+            }
+
+            if (before.DvLayer != null && !string.Equals(before.DvLayer, after.DvLayer, StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    $"Output video track {i} has Dolby Vision layer '{after.DvLayer ?? "none found"}', " +
+                    $"the source had '{before.DvLayer}'. Refusing to replace the original.");
+            }
+
+            if (before.HdrFormat != null && !string.Equals(before.HdrFormat, after.HdrFormat, StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    $"Output video track {i} is '{after.HdrFormat ?? "SDR"}', the source was " +
+                    $"'{before.HdrFormat}'. Refusing to replace the original.");
+            }
         }
     }
 
