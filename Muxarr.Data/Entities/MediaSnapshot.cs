@@ -26,18 +26,20 @@ public class MediaSnapshot : IMedia<TrackSnapshot>
     public bool HasAttachments { get; set; }
     public bool HasFaststart { get; set; }
 
-    // Callers treat Tracks as source order (the planner compares it position by
-    // position). SQL gives no row order without ORDER BY, and SQLite picks among
-    // the four SnapshotId indexes by estimated cost, so a schema change can flip
-    // it to (SnapshotId, Type, ...) order. EF fills the field; reads come back
-    // sorted by Index.
+    // A stored snapshot is a probe, so its tracks are in source (Index) order,
+    // and the planner compares them position by position. SQL gives no row
+    // order without ORDER BY: SQLite picks among the four SnapshotId indexes by
+    // estimated cost, and adding columns can flip it to (SnapshotId, Type, ...)
+    // order. EF fills the field; reads of a loaded snapshot come back sorted.
+    // In-memory snapshots keep the order they were built in (custom reorders).
     private List<TrackSnapshot> _tracks = [];
+    private bool _sortTracksOnRead;
 
     public List<TrackSnapshot> Tracks
     {
         get
         {
-            if (!IsInIndexOrder(_tracks))
+            if (_sortTracksOnRead && !IsInIndexOrder(_tracks))
             {
                 // Stable, and in place so EF keeps tracking the same list.
                 var sorted = _tracks.OrderBy(t => t.Index).ToList();
@@ -47,7 +49,17 @@ public class MediaSnapshot : IMedia<TrackSnapshot>
 
             return _tracks;
         }
-        set => _tracks = value;
+        set
+        {
+            _tracks = value;
+            _sortTracksOnRead = false;
+        }
+    }
+
+    /// <summary>Called when EF materializes this snapshot from the database.</summary>
+    internal void MarkLoadedFromDatabase()
+    {
+        _sortTracksOnRead = true;
     }
 
     private static bool IsInIndexOrder(List<TrackSnapshot> tracks)

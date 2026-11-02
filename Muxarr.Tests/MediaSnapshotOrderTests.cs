@@ -7,25 +7,27 @@ namespace Muxarr.Tests;
 public class MediaSnapshotOrderTests
 {
     // SQLite returns child rows in whichever SnapshotId index it picks, which
-    // can be (SnapshotId, Type, ...) order. Readers must still see source order.
+    // can be (SnapshotId, Type, ...) order. A loaded snapshot still reads in source order.
     [TestMethod]
-    public void Tracks_ReadBackInIndexOrder_WhateverOrderTheyWereLoaded()
+    public void LoadedSnapshot_TracksReadBackInIndexOrder()
     {
         var snapshot = new MediaSnapshot();
-        snapshot.Tracks.Add(Audio(1, "English"));
-        snapshot.Tracks.Add(Sub(2, "English"));
-        snapshot.Tracks.Add(Video(0));
+        snapshot.MarkLoadedFromDatabase();
+        var list = snapshot.Tracks;
+        list.Add(Audio(1, "English"));
+        list.Add(Sub(2, "English"));
+        list.Add(Video(0));
 
         CollectionAssert.AreEqual(new[] { 0, 1, 2 }, snapshot.Tracks.Select(t => t.Index).ToArray());
+        Assert.AreSame(list, snapshot.Tracks, "sorted in place so EF keeps tracking the same list");
     }
 
+    // Snapshots built in memory (a custom reorder) keep the order they were given.
     [TestMethod]
-    public void Tracks_SortKeepsTheSameListInstance()
+    public void InMemorySnapshot_KeepsItsOrder()
     {
-        var list = new List<TrackSnapshot> { Audio(1, "English"), Video(0) };
-        var snapshot = new MediaSnapshot { Tracks = list };
+        var snapshot = new MediaSnapshot { Tracks = [Video(0), Audio(2, "French"), Audio(1, "English")] };
 
-        Assert.AreSame(list, snapshot.Tracks);
-        Assert.AreEqual(0, list[0].Index);
+        CollectionAssert.AreEqual(new[] { 0, 2, 1 }, snapshot.Tracks.Select(t => t.Index).ToArray());
     }
 }
