@@ -1,3 +1,4 @@
+using Muxarr.Core.Extensions;
 using Muxarr.Core.Language;
 using Muxarr.Core.Models;
 using Muxarr.Data.Entities;
