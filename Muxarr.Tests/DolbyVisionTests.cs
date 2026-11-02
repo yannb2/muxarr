@@ -221,6 +221,32 @@ public class DolbyVisionTests
     }
 
     [TestMethod]
+    [DataRow(null, null, "H.265 / HEVC SDR")]
+    [DataRow("HDR10", null, "H.265 / HEVC HDR10")]
+    [DataRow("HLG", null, "H.265 / HEVC HLG")]
+    [DataRow("HDR10", "8.1", "H.265 / HEVC Dolby Vision Profile 8.1 HDR10")]
+    // Profile 5 has no HDR base layer; {dv} says it all, not "SDR".
+    [DataRow(null, "5", "H.265 / HEVC Dolby Vision Profile 5")]
+    public void Template_Range_WritesSdrForPlainVideo(string? hdr, string? dvProfile, string expected)
+    {
+        var track = Video(0);
+        track.HdrFormat = hdr;
+        track.DvProfile = dvProfile;
+
+        Assert.AreEqual(expected, track.ApplyTrackNameTemplate("{codec} {dv} {range}"));
+    }
+
+    [TestMethod]
+    public void Template_Range_SdrIsRenamable()
+    {
+        var track = Video(0);
+
+        Assert.AreEqual("H.265 / HEVC [SDR]", track.ApplyTrackNameTemplate("{codec} {range}",
+            new Dictionary<string, string> { ["SDR"] = "[SDR]" }));
+        Assert.AreEqual("H.265 / HEVC", track.ApplyTrackNameTemplate("{codec} {hdr}"), "{hdr} stays empty for SDR");
+    }
+
+    [TestMethod]
     public void Template_NonDvVideo_CollapsesEmptyTokens()
     {
         var track = Video(0);

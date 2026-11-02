@@ -75,11 +75,11 @@ public static class CodecNames
     }
 
     /// <summary>
-    /// HDR formats and Dolby Vision layers, renamable like codecs: {hdr} and
-    /// {dvlayer} (also inside the Dolby Vision wording) write the custom name.
+    /// HDR formats and Dolby Vision layers, renamable like codecs: {hdr}, {range}
+    /// and {dvlayer} (also inside the Dolby Vision wording) write the custom name.
     /// </summary>
     public static readonly IReadOnlyList<string> VideoFeatureLabels =
-        [HdrInfo.Hdr10, HdrInfo.Hdr10Plus, HdrInfo.Hlg, HdrInfo.Fel, HdrInfo.Mel];
+        [HdrInfo.Hdr10, HdrInfo.Hdr10Plus, HdrInfo.Hlg, HdrInfo.Sdr, HdrInfo.Fel, HdrInfo.Mel];
 
     /// <summary>A custom name for a single label, or the label itself ("" for null).</summary>
     public static string Rename(string? label, IReadOnlyDictionary<string, string>? customNames)

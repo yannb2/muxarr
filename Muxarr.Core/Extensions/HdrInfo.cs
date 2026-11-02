@@ -14,6 +14,17 @@ public static partial class HdrInfo
     public const string Hlg = "HLG";
     public const string Fel = "FEL";
     public const string Mel = "MEL";
+    public const string Sdr = "SDR";
+
+    /// <summary>
+    /// What {range} writes: the HDR format, or SDR for video with neither HDR nor
+    /// Dolby Vision. Dolby Vision without an HDR base (profile 5) writes nothing,
+    /// since {dv} already says what it is.
+    /// </summary>
+    public static string? DynamicRange(string? hdrFormat, string? dvProfile)
+    {
+        return hdrFormat ?? (dvProfile == null ? Sdr : null);
+    }
 
     /// <summary>The base layer's HDR format from the transfer characteristics, or null for SDR.</summary>
     public static string? ParseHdrFormat(string? colorTransfer)
