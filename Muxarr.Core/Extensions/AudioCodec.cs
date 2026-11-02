@@ -16,8 +16,20 @@ public enum AudioCodec
     [Display(Name = "DTS")]
     Dts,
 
+    [Display(Name = "DTS-ES")]
+    DtsEs,
+
+    [Display(Name = "DTS 96/24")]
+    Dts9624,
+
+    [Display(Name = "DTS-HD High Resolution Audio")]
+    DtsHdHra,
+
     [Display(Name = "DTS-HD Master Audio")]
     DtsHdMa,
+
+    [Display(Name = "DTS Express")]
+    DtsExpress,
 
     [Display(Name = "TrueHD")]
     TrueHd,
@@ -70,15 +82,22 @@ public static class AudioCodecExtensions
         }
 
         // ffprobe emits codec=dts for everything in the DTS family; the profile
-        // field carries the variant (DTS, DTS-HD MA, DTS-HD HRA, DTS Express).
-        // Only DTS-HD MA is lossless and matters for quality scoring.
+        // field carries the variant: DTS, DTS-ES, DTS 96/24, DTS-HD HRA,
+        // DTS-HD MA (also "DTS-HD MA + DTS:X"), DTS Express. Only DTS-HD MA is
+        // lossless and matters for quality scoring.
         if (upper == "DTS" && !string.IsNullOrEmpty(profile))
         {
-            var profileUpper = profile.ToUpperInvariant();
-            if (profileUpper.Contains("DTS-HD MA") || profileUpper.Contains("MASTER AUDIO"))
+            var variant = ParseDtsVariant(profile.ToUpperInvariant());
+            if (variant != AudioCodec.Unknown)
             {
-                return AudioCodec.DtsHdMa;
+                return variant;
             }
+        }
+
+        // mkvmerge names the variant in the codec string itself.
+        if (upper.StartsWith("DTS") && ParseDtsVariant(upper) is var named && named != AudioCodec.Unknown)
+        {
+            return named;
         }
 
         return upper switch
@@ -91,8 +110,8 @@ public static class AudioCodecExtensions
             "EAC3" or "E-AC-3" or "EAC-3" => AudioCodec.Eac3,
             // mkvmerge: DTS; ffprobe: dts (without a DTS-HD MA profile)
             "DTS" => AudioCodec.Dts,
-            // mkvmerge: DTS-HD Master Audio (ffprobe path is handled above via profile)
-            "DTS-HD MASTER AUDIO" or "DTSHD" or "DTS-HD" or "DTS-HD MA" => AudioCodec.DtsHdMa,
+            // Bare "DTS-HD" from older tools: treated as Master Audio, as before.
+            "DTSHD" or "DTS-HD" => AudioCodec.DtsHdMa,
             // mkvmerge: TrueHD; ffprobe: truehd
             "TRUEHD" => AudioCodec.TrueHd,
             // mkvmerge: FLAC; ffprobe: flac
@@ -107,5 +126,32 @@ public static class AudioCodecExtensions
             "MP2" => AudioCodec.Mp2,
             _ => AudioCodec.Unknown
         };
+    }
+
+    // Matches both ffprobe profiles ("DTS-HD HRA") and mkvmerge codec names
+    // ("DTS-HD High Resolution Audio"). Unknown for plain DTS.
+    private static AudioCodec ParseDtsVariant(string upper)
+    {
+        if (upper.Contains("DTS-HD MA") || upper.Contains("MASTER AUDIO"))
+        {
+            return AudioCodec.DtsHdMa;
+        }
+
+        if (upper.Contains("DTS-HD HRA") || upper.Contains("HIGH RES"))
+        {
+            return AudioCodec.DtsHdHra;
+        }
+
+        if (upper.Contains("EXPRESS"))
+        {
+            return AudioCodec.DtsExpress;
+        }
+
+        if (upper.Contains("96/24"))
+        {
+            return AudioCodec.Dts9624;
+        }
+
+        return upper.Contains("DTS-ES") ? AudioCodec.DtsEs : AudioCodec.Unknown;
     }
 }

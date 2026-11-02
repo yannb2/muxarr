@@ -55,9 +55,34 @@ public class ExtensionTests
         Assert.AreEqual(nameof(AudioCodec.DtsHdMa), CodecExtensions.ParseCodec("dts", "DTS-HD MA"));
         Assert.AreEqual(nameof(AudioCodec.DtsHdMa), CodecExtensions.ParseCodec("dts", "DTS-HD Master Audio"));
 
-        // Other DTS profiles stay plain DTS (HRA and Express are lossy).
-        Assert.AreEqual(nameof(AudioCodec.Dts), CodecExtensions.ParseCodec("dts", "DTS-HD HRA"));
-        Assert.AreEqual(nameof(AudioCodec.Dts), CodecExtensions.ParseCodec("dts", "DTS Express"));
+        // DTS:X rides on MA; the object layer is AudioFeature, not the codec.
+        Assert.AreEqual(nameof(AudioCodec.DtsHdMa), CodecExtensions.ParseCodec("dts", "DTS-HD MA + DTS:X"));
+    }
+
+    // Each lossy DTS variant gets its own codec so a profile can name it.
+    [TestMethod]
+    [DataRow("dts", "DTS-HD HRA", nameof(AudioCodec.DtsHdHra))]
+    [DataRow("dts", "DTS Express", nameof(AudioCodec.DtsExpress))]
+    [DataRow("dts", "DTS-ES", nameof(AudioCodec.DtsEs))]
+    [DataRow("dts", "DTS 96/24", nameof(AudioCodec.Dts9624))]
+    [DataRow("DTS-HD High Resolution Audio", "", nameof(AudioCodec.DtsHdHra))]
+    [DataRow("DTS-HD Master Audio", "", nameof(AudioCodec.DtsHdMa))]
+    [DataRow("DTS Express", "", nameof(AudioCodec.DtsExpress))]
+    [DataRow("DTS-ES", "", nameof(AudioCodec.DtsEs))]
+    [DataRow("DTS 96/24", "", nameof(AudioCodec.Dts9624))]
+    [DataRow("DTS", "", nameof(AudioCodec.Dts))]
+    public void ParseCodec_DtsVariants(string codec, string profile, string expected)
+    {
+        Assert.AreEqual(expected, CodecExtensions.ParseCodec(codec, profile));
+    }
+
+    [TestMethod]
+    public void TrackQuality_OnlyDtsHdMaIsLossless()
+    {
+        var ma = TestData.Audio(codec: nameof(AudioCodec.DtsHdMa), channels: 6);
+        var hra = TestData.Audio(codec: nameof(AudioCodec.DtsHdHra), channels: 6);
+
+        Assert.IsTrue(TrackQualityScorer.ScoreAudio(ma) > TrackQualityScorer.ScoreAudio(hra));
     }
 
     [TestMethod]

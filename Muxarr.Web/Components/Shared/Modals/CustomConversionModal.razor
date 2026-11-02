@@ -3,9 +3,27 @@
     <p class="mb-3 text-body-secondary">Select which tracks to keep, reorder them, and edit their metadata. Use
         <strong>Apply Profile</strong> below to start from a profile's track rules. At least one audio track is
         required.
-        Whole-file options like clearing the title or removing chapters are applied only by the profile itself, not
-        here.
+        Removing chapters is applied only by the profile itself, not here.
     </p>
+
+    <div class="mb-3">
+        <label class="form-label small text-muted mb-1" for="customFileTitle">File title</label>
+        <div class="d-flex gap-2">
+            <input id="customFileTitle" type="text" class="form-control form-control-sm"
+                   placeholder="(no title)" @bind="_editor.FileTitle" @bind:event="oninput"/>
+            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap"
+                    disabled="@(_editor.FileTitle.Length == 0)" @onclick="() => _editor.FileTitle = string.Empty">
+                Clear
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap"
+                    disabled="@(_editor.FileTitle == _editor.CurrentFileTitle)"
+                    @onclick="() => _editor.FileTitle = _editor.CurrentFileTitle">
+                Reset
+            </button>
+        </div>
+        <small class="form-text text-muted">The container title players show. Changing only this is an instant
+            metadata edit on MKV.</small>
+    </div>
 
     @if (_validationError)
     {
