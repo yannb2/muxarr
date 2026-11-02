@@ -9,6 +9,8 @@ on:
             - master
     release:
         types: [ published ]
+    # The upstream sync starts the tests this way; image jobs only run on push and release.
+    workflow_dispatch:
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
