@@ -25,7 +25,43 @@ public class MediaSnapshot : IMedia<TrackSnapshot>
     public bool HasChapters { get; set; }
     public bool HasAttachments { get; set; }
     public bool HasFaststart { get; set; }
-    public List<TrackSnapshot> Tracks { get; set; } = [];
+
+    // Callers treat Tracks as source order (the planner compares it position by
+    // position). SQL gives no row order without ORDER BY, and SQLite picks among
+    // the four SnapshotId indexes by estimated cost, so a schema change can flip
+    // it to (SnapshotId, Type, ...) order. EF fills the field; reads come back
+    // sorted by Index.
+    private List<TrackSnapshot> _tracks = [];
+
+    public List<TrackSnapshot> Tracks
+    {
+        get
+        {
+            if (!IsInIndexOrder(_tracks))
+            {
+                // Stable, and in place so EF keeps tracking the same list.
+                var sorted = _tracks.OrderBy(t => t.Index).ToList();
+                _tracks.Clear();
+                _tracks.AddRange(sorted);
+            }
+
+            return _tracks;
+        }
+        set => _tracks = value;
+    }
+
+    private static bool IsInIndexOrder(List<TrackSnapshot> tracks)
+    {
+        for (var i = 1; i < tracks.Count; i++)
+        {
+            if (tracks[i - 1].Index > tracks[i].Index)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 public class TrackSnapshot : IMediaTrack
