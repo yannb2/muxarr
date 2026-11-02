@@ -1340,6 +1340,9 @@ public static class MediaFileExtensions
             .Replace("{codec}", CodecNames.Resolve(track, codecNames), StringComparison.OrdinalIgnoreCase)
             .Replace("{object}", track.AudioFeature.DisplayName(), StringComparison.OrdinalIgnoreCase)
             .Replace("{hdr}", CodecNames.Rename(track.HdrFormat, codecNames), StringComparison.OrdinalIgnoreCase)
+            .Replace("{range}", track.Type == MediaTrackType.Video
+                ? CodecNames.Rename(HdrInfo.DynamicRange(track.HdrFormat, track.DvProfile), codecNames)
+                : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{resolution}", ResolutionLabel.From(track.Resolution), StringComparison.OrdinalIgnoreCase)
             .Replace("{dvprofile}", track.DvProfile ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{dvlayer}", dvLayer, StringComparison.OrdinalIgnoreCase)
