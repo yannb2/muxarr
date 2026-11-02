@@ -278,4 +278,50 @@ public class DolbyVisionTests
         track.DvLayer = layer;
         return track;
     }
+
+    // dovi_tool reads anything not named .mkv as raw HEVC, so the conversion
+    // output (*.mkv.muxtmp) needs a .mkv name to be checked at all.
+    [TestMethod]
+    [DataRow("/movies/a/Movie (2026).mkv", true)]
+    [DataRow("/movies/a/Movie (2026).MKV", true)]
+    [DataRow("/movies/a/Movie (2026).mkv.muxtmp", false)]
+    [DataRow("/movies/a/Movie (2026).mp4", false)]
+    public void DoviTool_NeedsAMatroskaName(string path, bool isMatroska)
+    {
+        Assert.AreEqual(isMatroska, Muxarr.Core.DoviTool.DoviTool.HasMatroskaExtension(path));
+    }
+
+    [TestMethod]
+    public void DoviTool_LinkAsMatroska_PointsAtTheFile()
+    {
+        var dir = Directory.CreateTempSubdirectory("muxarr-dovi-");
+        var file = Path.Combine(dir.FullName, "Movie (2026).mkv.muxtmp");
+        File.WriteAllText(file, "matroska");
+        try
+        {
+            var link = Muxarr.Core.DoviTool.DoviTool.LinkAsMatroska(file);
+            if (link == null)
+            {
+                // Windows runners without the symlink privilege: dovi_tool gets the file itself.
+                Assert.IsTrue(OperatingSystem.IsWindows(), "links should work everywhere else");
+                return;
+            }
+
+            try
+            {
+                Assert.AreEqual(".mkv", Path.GetExtension(link));
+                Assert.AreEqual("matroska", File.ReadAllText(link));
+            }
+            finally
+            {
+                File.Delete(link);
+            }
+
+            Assert.IsTrue(File.Exists(file), "deleting the link leaves the file");
+        }
+        finally
+        {
+            dir.Delete(true);
+        }
+    }
 }
