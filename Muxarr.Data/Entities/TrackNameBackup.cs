@@ -27,6 +27,12 @@ public class TrackNameBackup
     /// <summary>Chapter titles the file arrived with. Empty for entries written before chapters were kept.</summary>
     public List<ChapterInfo> Chapters { get; set; } = [];
 
+    /// <summary>
+    /// The file's global tags (TMDB id, release name...), the latest set seen. A file
+    /// that comes back with none keeps these, so a remux or retag that lost them can be undone.
+    /// </summary>
+    public List<FileTag> GlobalTags { get; set; } = [];
+
     /// <summary>The original title of the chapter starting at <paramref name="startMs"/>, if there was one.</summary>
     public string? OriginalChapterTitle(long startMs)
     {

@@ -298,6 +298,7 @@ public static class MediaFileExtensions
             TrackCount = tracks.Count,
             HasChapters = probe.Chapters.Count > 0,
             Chapters = probe.Chapters.Select(ToChapterInfo).ToList(),
+            GlobalTags = FileTag.FromFormatTags(probe.Format?.Tags),
             HasAttachments = probe.Streams.Any(s => s.CodecType == "attachment"),
             HasFaststart = family == ContainerFamily.Mp4 && FFmpeg.IsFaststartLayout(file.Path),
             Tracks = tracks

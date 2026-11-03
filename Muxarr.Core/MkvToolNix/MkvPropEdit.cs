@@ -102,6 +102,15 @@ public static class MkvPropEdit
             editCount++;
         }
 
+        // Replaces only the global tags; an empty name removes them all.
+        if (delta.TagsFile != null)
+        {
+            command += delta.TagsFile.Length == 0
+                ? " --tags global:"
+                : $" --tags \"global:{delta.TagsFile}\"";
+            editCount++;
+        }
+
         // Guard against plan/apply drift: if a strategy of MetadataEdit
         // produced a delta whose fields Apply can't express (e.g. a bare
         // IsDub change that the planner should have folded into a title

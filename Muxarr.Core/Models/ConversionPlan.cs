@@ -28,6 +28,15 @@ public class ConversionPlan : IMedia<TrackPlan>
     // null = leave chapters alone. Matroska only; ignored elsewhere.
     public List<ChapterInfo>? Chapters { get; set; }
 
+    // The global tags the file should end up with: values changed, some removed,
+    // some added. null = leave them alone. Matroska only; ignored elsewhere.
+    public List<FileTag>? GlobalTags { get; set; }
+
+    // Set while a conversion runs: the global tag XML the Matroska tools read.
+    // "" = the file keeps no global tags. Never stored.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? TagsFile { get; set; }
+
     // Set while a conversion runs: the chapter XML the Matroska tools read,
     // built from the source's own chapters with the new titles. Never stored.
     [System.Text.Json.Serialization.JsonIgnore]

@@ -23,6 +23,9 @@ public static class ConversionPlanExtensions
             TrimToVideoLength = desired.TrimToVideoLength,
             Title = DiffString(source.Title, desired.Title),
             Chapters = DiffChapters(source.Chapters, desired.Chapters),
+            GlobalTags = desired.GlobalTags != null && !FileTag.SameSet(source.GlobalTags, desired.GlobalTags)
+                ? desired.GlobalTags
+                : null,
             Tracks = new List<TrackPlan>(desired.Tracks.Count)
         };
 
@@ -82,6 +85,7 @@ public static class ConversionPlanExtensions
                || delta.Faststart != null
                || delta.Title != null
                || delta.Chapters != null
+               || delta.GlobalTags != null
                || delta.Tracks.Any(HasChanges);
     }
 

@@ -25,8 +25,9 @@ public static class ConversionPlanner
         var delta = ConversionPlanExtensions.Delta(source, desired);
         if (family != ContainerFamily.Matroska)
         {
-            // Only the Matroska tools can rename chapters.
+            // Only the Matroska tools can rename chapters or edit global tags.
             delta.Chapters = null;
+            delta.GlobalTags = null;
         }
 
         var hasStructuralChanges = HasStructuralChanges(source, desired);

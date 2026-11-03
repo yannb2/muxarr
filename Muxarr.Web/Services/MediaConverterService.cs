@@ -558,6 +558,7 @@ public class MediaConverterService(
         try
         {
             await PrepareChapterFileAsync(conversion, delta);
+            await PrepareTagsFileAsync(conversion, delta);
         }
         catch (Exception e)
         {
@@ -573,6 +574,7 @@ public class MediaConverterService(
         finally
         {
             DeleteChapterFile(delta);
+            DeleteTagsFile(delta);
         }
     }
 
@@ -621,6 +623,15 @@ public class MediaConverterService(
         await context.SaveChangesAsync(token);
 
         await PrepareChapterFileAsync(conversion, delta);
+        try
+        {
+            await PrepareTagsFileAsync(conversion, delta);
+        }
+        catch
+        {
+            DeleteChapterFile(delta);
+            throw;
+        }
 
         var reportProgress = BuildProgressReporter(conversion);
         ProcessResult result;
@@ -640,6 +651,7 @@ public class MediaConverterService(
         finally
         {
             DeleteChapterFile(delta);
+            DeleteTagsFile(delta);
         }
 
         token.ThrowIfCancellationRequested();
@@ -742,6 +754,47 @@ public class MediaConverterService(
 
         conversion.Log($"Renaming chapters ({result.Renamed} matched).", logger);
         delta.ChaptersFile = xml;
+    }
+
+    // Edited global tags go to the Matroska tools as an XML file built from the
+    // source's own tags. Throws when they cannot be read, so the conversion fails
+    // with the reason instead of quietly keeping the old ones.
+    private async Task PrepareTagsFileAsync(MediaConversion conversion, ConversionPlan delta)
+    {
+        delta.TagsFile = null;
+        if (delta.GlobalTags == null)
+        {
+            return;
+        }
+
+        var xml = Path.Combine(Path.GetTempPath(), $"muxarr-tags-{conversion.Id}-{Guid.NewGuid():N}.xml");
+        var result = await MkvGlobalTags.WriteEdited(conversion.MediaFile!.Path, delta.GlobalTags, xml);
+        if (result.Error != null)
+        {
+            TryDelete(xml);
+            throw new InvalidOperationException($"Could not edit the global tags: {result.Error}");
+        }
+
+        if (!result.HasTags)
+        {
+            TryDelete(xml);
+            conversion.Log("Removing all global tags.", logger);
+            delta.TagsFile = "";
+            return;
+        }
+
+        conversion.Log($"Writing {delta.GlobalTags.Count} global tag(s).", logger);
+        delta.TagsFile = xml;
+    }
+
+    private static void DeleteTagsFile(ConversionPlan delta)
+    {
+        if (!string.IsNullOrEmpty(delta.TagsFile))
+        {
+            TryDelete(delta.TagsFile);
+        }
+
+        delta.TagsFile = null;
     }
 
     private static void DeleteChapterFile(ConversionPlan delta)
