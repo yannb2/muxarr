@@ -36,6 +36,7 @@ public class CustomConversionEditor
                 Original = file.OriginalTrackNames?.OriginalChapterTitle(c.StartMs)
             })
             .ToList();
+        Tags = file.Snapshot.GlobalTags.Select(t => new TagEdit(t.Name, t.Value)).ToList();
 
         // Start from raw file state: every track kept, no mutations applied.
         // ApplyProfile is how the user opts into a profile's rules.
@@ -111,6 +112,84 @@ public class CustomConversionEditor
         foreach (var chapter in Chapters)
         {
             chapter.Title = chapter.Current;
+        }
+    }
+
+    /// <summary>One global tag: as the file has it, as the user wants it, or one the user added.</summary>
+    public sealed class TagEdit(string name, string? current)
+    {
+        public string Name { get; set; } = name;
+        public string? Current { get; } = current;
+        public string Value { get; set; } = current ?? "";
+        public bool Removed { get; set; }
+        public bool IsNew => Current == null;
+        public bool IsChanged => Removed || IsNew || Value != Current;
+    }
+
+    /// <summary>The file's global tags, editable. Only Matroska files can have them changed.</summary>
+    public List<TagEdit> Tags { get; private set; }
+
+    public bool CanEditTags => _file.Snapshot.ContainerType.ToContainerFamily() == ContainerFamily.Matroska;
+
+    public bool TagsChanged => Tags.Any(t => t.IsChanged && !(t.IsNew && t.Removed));
+
+    public void AddTag()
+    {
+        Tags.Add(new TagEdit("", null));
+    }
+
+    public void ResetTags()
+    {
+        Tags = _file.Snapshot.GlobalTags.Select(t => new TagEdit(t.Name, t.Value)).ToList();
+    }
+
+    /// <summary>The tags in the track name backup, when they differ from the file's.</summary>
+    public IReadOnlyList<FileTag>? BackedUpTags =>
+        _file.OriginalTrackNames?.GlobalTags is { Count: > 0 } backup
+        && !FileTag.SameSet(backup, _file.Snapshot.GlobalTags)
+            ? backup
+            : null;
+
+    /// <summary>Makes the wanted tags the backed-up set: theirs back, the rest removed.</summary>
+    public void UseBackedUpTags()
+    {
+        if (BackedUpTags is not { } backup)
+        {
+            return;
+        }
+
+        ResetTags();
+        foreach (var tag in Tags)
+        {
+            var saved = backup.FirstOrDefault(b => b.Name == tag.Name);
+            tag.Removed = saved == null;
+            tag.Value = saved?.Value ?? tag.Value;
+        }
+
+        foreach (var saved in backup.Where(b => Tags.All(t => t.Name != b.Name)))
+        {
+            Tags.Add(new TagEdit(saved.Name, null) { Value = saved.Value });
+        }
+    }
+
+    /// <summary>Why the tags cannot be written as they are, or null when they can.</summary>
+    public string? TagProblem
+    {
+        get
+        {
+            var kept = Tags.Where(t => !t.Removed).ToList();
+            if (kept.Any(t => string.IsNullOrWhiteSpace(t.Name)))
+            {
+                return "Every tag needs a name.";
+            }
+
+            if (kept.FirstOrDefault(t => FileTag.IsContainerField(t.Name.Trim())) is { } reserved)
+            {
+                return $"\"{reserved.Name.Trim()}\" is a container field, not a tag.";
+            }
+
+            var duplicate = kept.GroupBy(t => t.Name.Trim()).FirstOrDefault(g => g.Count() > 1);
+            return duplicate == null ? null : $"\"{duplicate.Key}\" is used twice.";
         }
     }
 
@@ -308,6 +387,14 @@ public class CustomConversionEditor
         {
             plan.Chapters = Chapters
                 .Select(c => new ChapterInfo { StartMs = c.StartMs, Title = c.IsChanged ? c.Title.Trim() : null })
+                .ToList();
+        }
+
+        if (CanEditTags && TagsChanged && TagProblem == null)
+        {
+            plan.GlobalTags = Tags
+                .Where(t => !t.Removed)
+                .Select(t => new FileTag { Name = t.Name.Trim(), Value = t.Value })
                 .ToList();
         }
 

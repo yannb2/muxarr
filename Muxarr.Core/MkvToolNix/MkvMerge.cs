@@ -78,6 +78,14 @@ public static class MkvMerge
             command += $" --chapters \"{delta.ChaptersFile}\" --no-chapters";
         }
 
+        if (delta.TagsFile != null)
+        {
+            // The edited copy replaces the source's global tags; "" drops them all.
+            command += delta.TagsFile.Length == 0
+                ? " --no-global-tags"
+                : $" --global-tags \"{delta.TagsFile}\" --no-global-tags";
+        }
+
         if (delta.HasAttachments == false)
         {
             command += " --no-attachments";
