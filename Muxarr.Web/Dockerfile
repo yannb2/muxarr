@@ -1,4 +1,6 @@
-ARG FFMPEG_VERSION=8.1
+# Pins. The build workflow passes the same values (its env block); the weekly "Tool updates"
+# workflow bumps both together. The Tools page shows them next to the newest versions.
+ARG FFMPEG_VERSION=9.0
 ARG MKVTOOLNIX_VERSION=103.0
 ARG DOVI_TOOL_VERSION=2.3.4
 
@@ -42,7 +44,9 @@ RUN set -eux; \
     /out/dovi_tool --version
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
+ARG FFMPEG_VERSION
 ARG MKVTOOLNIX_VERSION
+ARG DOVI_TOOL_VERSION
 
 # mkvtoolnix from the project's own repo; the Ubuntu one in the base image is v82 from 2024.
 # The key is checked against the fingerprint published on mkvtoolnix.download/authenticity.html.
@@ -75,7 +79,11 @@ RUN chmod +x ./entrypoint.sh
 # carries that anonymous volume across a recreate while the image still declares it.
 VOLUME ["/config", "/data"]
 
-ENV ASPNETCORE_HTTP_PORTS=8183
+ENV ASPNETCORE_HTTP_PORTS=8183 \
+    MUXARR_PIN_FFMPEG=${FFMPEG_VERSION} \
+    MUXARR_PIN_FFPROBE=${FFMPEG_VERSION} \
+    MUXARR_PIN_MKVTOOLNIX=${MKVTOOLNIX_VERSION} \
+    MUXARR_PIN_DOVI_TOOL=${DOVI_TOOL_VERSION}
 EXPOSE 8183
 
 ENTRYPOINT ["./entrypoint.sh", "dotnet", "Muxarr.Web.dll"]

@@ -1,4 +1,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@using Muxarr.Web.Services.Tools
+@implements IDisposable
+@inject ToolStatusService Tools
 <nav class="mux-sidebar @(_isDesktopCollapsed ? "collapsed" : "") @(_isMobileOpen ? "mux-mobile-open" : "")">
     <div class="mux-sidebar-header d-none d-md-flex">
         <a href="/" class="d-flex align-items-center gap-2 text-decoration-none">
@@ -37,6 +40,16 @@
                 <NavLink class="nav-link" href="logs" @onclick="CloseMobileMenu">
                     <i class="bi bi-journal-text"></i>
                     <span>Logs</span>
+                </NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link" href="tools" @onclick="CloseMobileMenu">
+                    <i class="bi bi-tools"></i>
+                    <span>Tools</span>
+                    @if (Tools.UpdateCount > 0)
+                    {
+                        <span class="badge rounded-pill text-bg-info ms-auto" title="Newer tool versions">@Tools.UpdateCount</span>
+                    }
                 </NavLink>
             </li>
             <li class="nav-item">
@@ -112,6 +125,10 @@
         StateHasChanged();
     }
 
+    private void OnToolsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Tools.Changed -= OnToolsChanged;
+
     private void CloseMobileMenu()
     {
         if (_isMobileOpen)
@@ -126,6 +143,8 @@
         {
             throw new Exception("NavMenu requires a MainLayout cascading parameter");
         }
+
+        Tools.Changed += OnToolsChanged;
 
         if (AuthStateProvider != null)
         {
