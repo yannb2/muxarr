@@ -19,7 +19,9 @@ concurrency:
 env:
     REGISTRY: ghcr.io
     IMAGE_NAME: ${{ github.repository }}
-    FFMPEG_VERSION: '8.1'
+    # Tool pins, the same as the ARG lines in Muxarr.Web/Dockerfile (the weekly "Tool updates"
+    # workflow bumps both; a test checks they match).
+    FFMPEG_VERSION: '9.0'
     MKVTOOLNIX_VERSION: '103.0'
     DOVI_TOOL_VERSION: '2.3.4'
     DOTNET_VERSION: '10.0.x'
@@ -37,6 +39,11 @@ jobs:
         steps:
             -   name: Checkout code
                 uses: actions/checkout@v7
+
+            # Fork: the weekly tool update script, and the pins here matching the Dockerfile's.
+            -   name: Tool update script tests
+                if: runner.os == 'Linux'
+                run: python3 -I -m unittest discover -s .github/scripts -p 'test_*.py' -v
 
             # Same repo and version as the image, not Ubuntu's v82 from 2024.
             -   name: Install mkvtoolnix ${{ env.MKVTOOLNIX_VERSION }} (Linux)

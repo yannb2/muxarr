@@ -11,6 +11,7 @@ using Muxarr.Web.Logging;
 using Muxarr.Web.Services;
 using Muxarr.Web.Services.Notifications;
 using Muxarr.Web.Services.Scheduler;
+using Muxarr.Web.Services.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,10 @@ await builder.RunWithLoggingAsync(async b =>
     b.Services.AddScheduledService<WebhookService>();
     b.Services.AddScheduledService<LogWriterService>();
     b.Services.AddHostedService<ScheduledServiceManager>();
+
+    // Fork: tool versions against the newest upstream ones (Tools page).
+    b.Services.AddSingleton<ToolStatusService>();
+    b.Services.AddHostedService(services => services.GetRequiredService<ToolStatusService>());
 
     // Notifications
     b.Services.AddNotifications();

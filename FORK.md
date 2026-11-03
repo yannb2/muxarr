@@ -22,6 +22,17 @@ services:
     image: ghcr.io/yannb2/muxarr:dev
 ```
 
+## Tools and updates
+
+The image pins FFmpeg (BtbN static build), MKVToolNix and dovi_tool with the `ARG` lines in
+`Muxarr.Web/Dockerfile`; the `env` block of `build-and-deploy.yml` repeats them for the tests and
+the image build args (a test checks they match). The **Tools** page (sidebar) shows what each
+tool reports, the pin and the newest upstream version, looked up once a day
+(`Muxarr__Updates__Enabled=false` turns that off); Muxarr never installs anything.
+Every Monday the "Tool updates" workflow opens a pull request bumping both files when something
+newer is out. It needs Settings > Actions > General > "Allow GitHub Actions to create and approve
+pull requests".
+
 ## Keeping up with upstream
 
 ```sh
