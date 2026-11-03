@@ -665,3 +665,21 @@
     border: 1px solid rgb(255 255 255 / 15%);
     box-shadow: 0 3px 6px 2px rgb(0 0 0 / 30%);
 }
+
+/* A card that opens and closes from its header (the file page's chapters). */
+.mux-collapsible > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.mux-collapsible > summary::-webkit-details-marker {
+    display: none;
+}
+
+.mux-collapsible-chevron {
+    transition: transform 0.15s ease;
+}
+
+.mux-collapsible[open] .mux-collapsible-chevron {
+    transform: rotate(180deg);
+}
