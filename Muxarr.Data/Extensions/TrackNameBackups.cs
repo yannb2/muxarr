@@ -28,14 +28,27 @@ public static class TrackNameBackups
 
     /// <summary>True when the stored copy no longer describes the file and the sidecar needs a visit.</summary>
     public static bool NeedsSync(TrackNameBackup? stored, string path, long size, DateTime now,
-        bool hasChapters = false)
+        bool hasChapters = false, IReadOnlyList<FileTag>? currentTags = null)
     {
         return stored == null
                || stored.FileName != Path.GetFileName(path)
                || stored.Size != size
                || now - stored.LastSeen > RefreshAfter
                // An entry from before chapters were backed up gets them once.
-               || (hasChapters && stored.Chapters.Count == 0);
+               || (hasChapters && stored.Chapters.Count == 0)
+               || TagsChanged(stored.GlobalTags, currentTags);
+    }
+
+    /// <summary>True when the file has global tags and they differ from the backed-up ones.</summary>
+    public static bool TagsChanged(IReadOnlyList<FileTag> stored, IReadOnlyList<FileTag>? current)
+    {
+        if (current is not { Count: > 0 })
+        {
+            return false;
+        }
+
+        return stored.Count != current.Count
+               || stored.Where((t, i) => t.Name != current[i].Name || t.Value != current[i].Value).Any();
     }
 
     /// <summary>
@@ -48,7 +61,8 @@ public static class TrackNameBackups
     public static TrackNameBackup Sync(string path, long size, long durationMs,
         IReadOnlyList<IMediaTrack> currentTracks, IReadOnlyList<IMediaTrack>? firstSeenTracks,
         TrackNameBackup? stored, DateTime now, ILogger? logger = null,
-        IReadOnlyList<ChapterInfo>? currentChapters = null, IReadOnlyList<ChapterInfo>? firstSeenChapters = null)
+        IReadOnlyList<ChapterInfo>? currentChapters = null, IReadOnlyList<ChapterInfo>? firstSeenChapters = null,
+        IReadOnlyList<FileTag>? currentTags = null)
     {
         var directory = Path.GetDirectoryName(path) ?? ".";
         var fileName = Path.GetFileName(path);
@@ -73,6 +87,12 @@ public static class TrackNameBackups
         {
             // Entries written before chapters were backed up: take them once.
             entry.Chapters = CopyChapters(chapters);
+        }
+
+        // Tags follow the file: the latest set is kept, and a file without tags never wipes them.
+        if (TagsChanged(entry.GlobalTags, currentTags))
+        {
+            entry.GlobalTags = currentTags!.Select(t => new FileTag { Name = t.Name, Value = t.Value }).ToList();
         }
 
         // A different file under this name (a new release kept the old name) replaces the old entry.

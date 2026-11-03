@@ -363,7 +363,7 @@ public class MediaScannerService(
         var now = DateTime.UtcNow;
         var size = new FileInfo(dbFile.Path) is { Exists: true } info ? info.Length : dbFile.Size;
         if (!TrackNameBackups.NeedsSync(dbFile.OriginalTrackNames, dbFile.Path, size, now,
-                dbFile.Snapshot.Chapters.Count > 0))
+                dbFile.Snapshot.Chapters.Count > 0, dbFile.Snapshot.GlobalTags))
         {
             return;
         }
@@ -389,7 +389,7 @@ public class MediaScannerService(
 
         dbFile.OriginalTrackNames = TrackNameBackups.Sync(dbFile.Path, size, dbFile.Snapshot.DurationMs,
             dbFile.Snapshot.Tracks, firstSeen, dbFile.OriginalTrackNames, now, logger,
-            dbFile.Snapshot.Chapters, firstSeenChapters);
+            dbFile.Snapshot.Chapters, firstSeenChapters, dbFile.Snapshot.GlobalTags);
     }
 
     private static void ApplyProfileFlags(MediaFile file, Profile? profile)

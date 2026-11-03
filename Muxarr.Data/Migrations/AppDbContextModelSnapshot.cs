@@ -375,6 +375,11 @@ namespace Muxarr.Data.Migrations
                     b.Property<long>("DurationMs")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("GlobalTags")
+                        .IsRequired()
+                        .IsUnicode(true)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("HasAttachments")
                         .HasColumnType("INTEGER");
 

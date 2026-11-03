@@ -121,6 +121,42 @@
                         <div class="text-muted small mb-1">Added</div>
                         <TimeAgo DateTime="File.CreatedDate"/>
                     </div>
+                    <div class="list-group-item bg-transparent px-0">
+                        <div class="text-muted small mb-1">Global Tags</div>
+                        @{
+                            var tags = File.Snapshot.GlobalTags;
+                            var backedUp = File.OriginalTrackNames?.GlobalTags ?? [];
+                            var fromBackup = tags.Count == 0 && backedUp.Count > 0;
+                            if (fromBackup)
+                            {
+                                tags = backedUp;
+                            }
+                        }
+                        @if (tags.Count == 0)
+                        {
+                            <span class="text-muted small">None. If the file has tags, rescan it to list them.</span>
+                        }
+                        else
+                        {
+                            if (fromBackup)
+                            {
+                                <div class="text-warning small mb-1">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>The file has none now; these are from the backup.
+                                </div>
+                            }
+                            <table class="table table-sm mb-0 small">
+                                <tbody>
+                                @foreach (var tag in tags)
+                                {
+                                    <tr>
+                                        <td class="text-muted text-nowrap pe-3" style="width: 1%;">@tag.Name</td>
+                                        <td class="text-break">@tag.Value</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
                 </div>
             </div>
         </div>

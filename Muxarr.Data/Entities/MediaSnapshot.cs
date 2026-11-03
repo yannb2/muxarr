@@ -31,6 +31,10 @@ public class MediaSnapshot : IMedia<TrackSnapshot>
     // chapters were listed, even when HasChapters says there are some.
     public List<ChapterInfo> Chapters { get; set; } = [];
 
+    // File-level tags (TMDB id, release name...) from ffprobe. Empty for snapshots
+    // taken before they were read, until the file is rescanned.
+    public List<FileTag> GlobalTags { get; set; } = [];
+
     // A stored snapshot is a probe, so its tracks are in source (Index) order,
     // and the planner compares them position by position. SQL gives no row
     // order without ORDER BY: SQLite picks among the four SnapshotId indexes by
@@ -154,6 +158,9 @@ public class MediaSnapshotConfiguration : IEntityTypeConfiguration<MediaSnapshot
             .IsRequired();
 
         builder.Property(e => e.Chapters)
+            .HasJsonConversion();
+
+        builder.Property(e => e.GlobalTags)
             .HasJsonConversion();
 
         builder.Property(e => e.TrackCount)
