@@ -55,6 +55,14 @@ read. The image ships Tesseract with English, French, German, Spanish and Italia
   and the whole conversion.
 - The sidebar's Docs link opens this file, and the version links to this fork.
 
+### Checking the new file
+
+Before the new file replaces the original, the fork also checks (from Ripparr's verify step):
+
+- chapters the plan keeps are still there (a failure: the original stays);
+- in MKV files, each track's name, language and default/forced/SDH/AD/commentary flags as planned (a
+  warning in the conversion log: the file plays, a player only shows or picks something else).
+
 ## Shared code: arrkit
 
 The subtitle code behind Track checks (PGS reader, OCR, SDH cleaner, classifier, track sampler) is
