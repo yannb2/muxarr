@@ -1,3 +1,4 @@
+using Muxarr.Core.Extensions;
 using Muxarr.Core.Language;
 using Muxarr.Core.Models;
 using Muxarr.Data.Entities;
@@ -154,6 +155,71 @@ public class CustomConversionEditorTests
         CollectionAssert.AreEqual(new[] { 0, 2, 1 }, editor.Build().Tracks.Select(t => t.Index).ToArray());
         Assert.IsTrue(editor.IsSelected(video), "the video checkbox may not come unticked");
         Assert.IsFalse(editor.CanMoveUp(editor.Tracks[1]), "nothing may move above the video");
+    }
+
+    // --- Description box ---
+
+    [TestMethod]
+    public void Description_FillsTheProfileTemplate()
+    {
+        var audio = Standardizing("English");
+        audio.TrackNameTemplate = "{language} - {codec} {channels}";
+        audio.TrackNameOverrides[TrackFlag.Commentary] = "{language} - {codec} {channels} ({description})";
+        var profile = MakeProfile(audio: audio);
+        var file = MakeFile("English", Video(0),
+            Audio(1, "English", codec: nameof(AudioCodec.Ac3), channels: 2, commentary: true, trackName: "English - AC-3 2.0 (Commentary)"));
+        file.Profile = profile;
+        var editor = new CustomConversionEditor(file);
+        var track = editor.Tracks.Single(t => t.Type == MediaTrackType.Audio);
+
+        Assert.AreEqual("Commentary", editor.DescriptionOf(track));
+
+        editor.Describe(track, "Commentary by John Carpenter");
+        Assert.AreEqual("English - AC-3 2.0 (Commentary by John Carpenter)", track.Name);
+        Assert.AreEqual("Commentary by John Carpenter", editor.DescriptionOf(track));
+
+        editor.Describe(track, "=My own name");
+        Assert.AreEqual("My own name", track.Name);
+    }
+
+    [TestMethod]
+    public void Description_WithoutTheTokenGoesInBrackets()
+    {
+        var audio = Standardizing("English");
+        audio.TrackNameTemplate = "{language} - {codec} {channels}";
+        var profile = MakeProfile(audio: audio);
+        var file = MakeFile("English", Video(0), Audio(1, "English", codec: nameof(AudioCodec.Ac3), channels: 2));
+        file.Profile = profile;
+        var editor = new CustomConversionEditor(file);
+        var track = editor.Tracks.Single(t => t.Type == MediaTrackType.Audio);
+
+        editor.Describe(track, "Isolated score");
+
+        Assert.AreEqual("English - AC-3 2.0 (Isolated score)", track.Name);
+        Assert.AreEqual("Isolated score", editor.DescriptionOf(track));
+    }
+
+    [TestMethod]
+    public void Description_HiddenWhenTheProfileDoesNotNameTracks()
+    {
+        var file = MakeFile("English", Video(0), Audio(1, "English"));
+        file.Profile = MakeProfile();
+        var editor = new CustomConversionEditor(file);
+
+        Assert.IsNull(editor.DescriptionOf(editor.Tracks.Single(t => t.Type == MediaTrackType.Audio)));
+        Assert.IsNull(editor.DescriptionOf(editor.Tracks.Single(t => t.Type == MediaTrackType.Video)));
+    }
+
+    [TestMethod]
+    public void Description_EmptyForANameTheTemplateWouldDrop()
+    {
+        var audio = Standardizing("English");
+        audio.TrackNameTemplate = "{language} - {codec} {channels}";
+        var file = MakeFile("English", Video(0), Audio(1, "English", trackName: "Surround 5.1"));
+        file.Profile = MakeProfile(audio: audio);
+        var editor = new CustomConversionEditor(file);
+
+        Assert.AreEqual("", editor.DescriptionOf(editor.Tracks.Single(t => t.Type == MediaTrackType.Audio)));
     }
 
     private static TrackSettings Standardizing(params string[] languages)

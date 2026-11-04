@@ -212,6 +212,21 @@ public class CustomConversionEditor
         }
     }
 
+    /// <summary>
+    /// The track's {description} under the profile's names, for the Description box. Null when the
+    /// profile does not standardize this track type, or for video.
+    /// </summary>
+    public string? DescriptionOf(TrackSnapshot track)
+    {
+        return track.Type == MediaTrackType.Video ? null : track.DescriptionOf(_appliedProfile ?? _file.Profile);
+    }
+
+    /// <summary>Writes the profile's name for the track with this text as {description} ("=..." is the whole name).</summary>
+    public void Describe(TrackSnapshot track, string? text)
+    {
+        track.DescribeTrack(_file, _appliedProfile ?? _file.Profile, _tracks, text);
+    }
+
     public bool IsSelected(TrackSnapshot track)
     {
         return _selected.Contains(track.Index);

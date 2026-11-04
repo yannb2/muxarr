@@ -221,7 +221,7 @@ public class DolbyVisionTests
     }
 
     [TestMethod]
-    [DataRow(null, null, "H.265 / HEVC SDR")]
+    [DataRow(null, null, "H.265 / HEVC SDR")] // 2160p: SDR is said
     [DataRow("HDR10", null, "H.265 / HEVC HDR10")]
     [DataRow("HLG", null, "H.265 / HEVC HLG")]
     [DataRow("HDR10", "8.1", "H.265 / HEVC Dolby Vision Profile 8.1 HDR10")]
@@ -230,6 +230,7 @@ public class DolbyVisionTests
     public void Template_Range_WritesSdrForPlainVideo(string? hdr, string? dvProfile, string expected)
     {
         var track = Video(0);
+        track.Resolution = "3840x2160";
         track.HdrFormat = hdr;
         track.DvProfile = dvProfile;
 
@@ -237,9 +238,24 @@ public class DolbyVisionTests
     }
 
     [TestMethod]
+    [DataRow("1920x1080")]
+    [DataRow("1280x720")]
+    [DataRow(null)]
+    public void Template_Range_NoSdrBelow2160p(string? resolution)
+    {
+        var track = Video(0);
+        track.Resolution = resolution;
+
+        Assert.AreEqual("H.265 / HEVC", track.ApplyTrackNameTemplate("{codec} {range}"));
+        track.HdrFormat = HdrInfo.Hdr10;
+        Assert.AreEqual("H.265 / HEVC HDR10", track.ApplyTrackNameTemplate("{codec} {range}"), "HDR is still said");
+    }
+
+    [TestMethod]
     public void Template_Range_SdrIsRenamable()
     {
         var track = Video(0);
+        track.Resolution = "3840x2160";
 
         Assert.AreEqual("H.265 / HEVC [SDR]", track.ApplyTrackNameTemplate("{codec} {range}",
             new Dictionary<string, string> { ["SDR"] = "[SDR]" }));

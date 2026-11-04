@@ -181,6 +181,80 @@ public class CodecNamesTests
         Assert.AreEqual(first, second);
     }
 
+    private const string CommentaryTemplate = "{language} - {codec} {channels} ({description})";
+    private const string AudioTemplate = "{language} - {codec} {channels} {dub}";
+
+    [TestMethod]
+    public void Template_AnyDescriptionDoesNotNestOnRerun()
+    {
+        // Only "comment" brackets were recognised before: "Isolated score" nested on every run.
+        var track = Audio(codec: nameof(AudioCodec.Ac3), channels: 2, commentary: true, trackName: "Isolated score");
+
+        var first = track.ApplyTrackNameTemplate(CommentaryTemplate);
+        track.Name = first;
+        var second = track.ApplyTrackNameTemplate(CommentaryTemplate);
+
+        Assert.AreEqual("English - AC-3 2.0 (Isolated score)", first);
+        Assert.AreEqual(first, second);
+    }
+
+    [TestMethod]
+    public void Template_NameFromAnotherTemplateIsNotItsOwnDescription()
+    {
+        // Named by the default template, then flagged as a commentary: the old name is not the description.
+        var track = Audio(codec: nameof(AudioCodec.Ac3), channels: 2, commentary: true, trackName: "English - AC-3 2.0");
+
+        Assert.AreEqual("English - AC-3 2.0 (Commentary)",
+            track.ApplyTrackNameTemplate(CommentaryTemplate, namedBy: [AudioTemplate]));
+    }
+
+    [TestMethod]
+    public void Template_EmptyCommentaryIsDescribedAsOne()
+    {
+        var track = Audio(codec: nameof(AudioCodec.Ac3), channels: 2, commentary: true);
+
+        Assert.AreEqual("English - AC-3 2.0 (Commentary)", track.ApplyTrackNameTemplate(CommentaryTemplate));
+        Assert.AreEqual("English (Commentary) - AC-3",
+            track.ApplyTrackNameTemplate("{language} (Commentary) - {description} - {codec}"), "the template says it already");
+        Assert.AreEqual("English - AC-3 2.0 - Commentary",
+            track.ApplyTrackNameTemplate("{language} - {codec} {channels} - {commentary} {description}"));
+        Assert.AreEqual("English - AC-3 2.0", Audio(codec: nameof(AudioCodec.Ac3), channels: 2)
+            .ApplyTrackNameTemplate(CommentaryTemplate), "not a commentary");
+    }
+
+    [TestMethod]
+    public void Template_TypedDescriptionFillsTheToken()
+    {
+        var track = Audio(codec: nameof(AudioCodec.Ac3), channels: 2, commentary: true, trackName: "English - AC-3 2.0 (Commentary)");
+
+        Assert.AreEqual("English - AC-3 2.0 (Commentary by John Carpenter)",
+            track.ApplyTrackNameTemplate(CommentaryTemplate, description: "Commentary by John Carpenter"));
+    }
+
+    [TestMethod]
+    public void Template_WithoutTheTokenKeepsATypedDescriptionInBrackets()
+    {
+        var track = Audio(codec: nameof(AudioCodec.Ac3), channels: 2);
+
+        var named = track.ApplyTrackNameTemplate(AudioTemplate, description: "Isolated score");
+        track.Name = named;
+
+        Assert.AreEqual("English - AC-3 2.0 (Isolated score)", named);
+        Assert.AreEqual(named, track.ApplyTrackNameTemplate(AudioTemplate), "kept on a rerun");
+        Assert.AreEqual("English - AC-3 2.0", Audio(codec: nameof(AudioCodec.Ac3), channels: 2, trackName: "Surround")
+            .ApplyTrackNameTemplate(AudioTemplate), "a name no template wrote is not kept");
+    }
+
+    [TestMethod]
+    public void TrackDescription_IsTheTextTheTemplateDidNotWrite()
+    {
+        var track = Sub(commentary: true, codec: nameof(SubtitleCodec.Pgs),
+            trackName: "English (Commentary) - Director and cast - PGS");
+
+        Assert.AreEqual("Director and cast", track.TrackDescription(["{language} (Commentary) - {description} - {codec}"]));
+        Assert.AreEqual("Some release tag", Sub(trackName: "Some release tag").TrackDescription(["{language} - {codec}"]));
+    }
+
     // --- Quality scoring ---
 
     [TestMethod]

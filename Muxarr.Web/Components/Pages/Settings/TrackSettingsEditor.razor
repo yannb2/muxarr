@@ -293,8 +293,11 @@
                     <text><code>{codec}</code> includes Atmos or DTS:X when the stream carries it; <code>{object}</code>
                         is that layer alone.</text>
                 }
-                <code>{description}</code> is the current name without the part this template wrote, for keeping
-                "Commentary by ..." text across runs.
+                <code>{description}</code> is the current name without the part a template of this profile
+                wrote, so "Commentary by ..." text is kept across runs, or what was typed in the Description box
+                of a custom conversion. A commentary with no description gets "Commentary", unless the template
+                already says it. A template without <code>{description}</code> keeps a typed description in
+                brackets at the end.
                 Leave empty to clear all track names.
             </small>
 

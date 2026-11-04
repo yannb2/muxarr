@@ -10,6 +10,24 @@ It adds a few things on top of upstream, one milestone at a time:
 | v0.3 | "Custom rules" track order (forced first, language priority, codec order) and a "Forced only" subtitle default |
 | v0.4 | HDR and Dolby Vision detection (profile, FEL/MEL via dovi_tool) and a video track name template |
 
+### SDR only at 2160p
+
+`{range}` in the video track name writes "SDR" only for 4K video (2160p and up). Below 4K every file is
+SDR, so nothing is written, the same rule as tag_release, Radarr's SDR custom format and Ripparr.
+
+### Track descriptions
+
+`{description}` in a track name template is the text that isn't from the template: the current name
+minus the part one of the profile's templates wrote (default or flag override), so a rerun never
+nests a name inside itself. The custom conversion has a Description box under each audio and
+subtitle name, the same as Ripparr's disc page:
+
+- What you type fills `{description}`, and the name below updates to what will be written.
+- A template without `{description}` puts the text in brackets at the end, and keeps it on later runs.
+- Text starting with `=` is the whole name, as typed.
+- A commentary with nothing typed gets "Commentary", unless its template already says it
+  (`{language} (Commentary) - {description} - {codec}`).
+
 ## Image
 
 Every push to `master` builds `ghcr.io/yannb2/muxarr:dev` (amd64 and arm64).

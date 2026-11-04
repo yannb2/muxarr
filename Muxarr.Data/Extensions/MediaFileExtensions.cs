@@ -1208,7 +1208,7 @@ public static class MediaFileExtensions
     /// just put the old ones back.
     /// </summary>
     private static void ApplyProfileState(this TrackSnapshot track, TrackSettings? settings,
-        int totalTracksOfType, string? originalLanguage, bool standardizeNames)
+        int totalTracksOfType, string? originalLanguage, bool standardizeNames, string? description = null)
     {
         if (track.ShouldResolveUndetermined(settings, totalTracksOfType, originalLanguage))
         {
@@ -1239,7 +1239,8 @@ public static class MediaFileExtensions
             }
 
             var template = settings.ResolveTemplate(track);
-            track.Name = track.ApplyTrackNameTemplate(template, settings.CodecNames);
+            track.Name = track.ApplyTrackNameTemplate(template, settings.CodecNames,
+                namedBy: settings.NameTemplates, description: description);
         }
     }
 
@@ -1302,7 +1303,7 @@ public static class MediaFileExtensions
     // The name the profile's standardization would give this track, or null when
     // it doesn't standardize this type.
     private static string? StandardizedName(TrackSnapshot track, TrackSettings? settings,
-        ContainerFamily family, int totalTracksOfType, string? originalLanguage)
+        ContainerFamily family, int totalTracksOfType, string? originalLanguage, string? description = null)
     {
         if (settings is not { StandardizeTrackNames: true })
         {
@@ -1310,8 +1311,53 @@ public static class MediaFileExtensions
         }
 
         var preview = track.ToSnapshot();
-        preview.ApplyProfileState(settings, totalTracksOfType, originalLanguage, standardizeNames: true);
+        preview.ApplyProfileState(settings, totalTracksOfType, originalLanguage, standardizeNames: true, description);
         return CarryInName(preview.Name, preview, family);
+    }
+
+    /// <summary>
+    /// What {description} gives for the track under the profile's names, or null when the profile
+    /// does not standardize this track type (the name is then written as it is typed).
+    /// </summary>
+    public static string? DescriptionOf(this TrackSnapshot track, Profile? profile)
+    {
+        var settings = profile == null ? null : SettingsFor(track.Type, profile);
+        if (settings is not { StandardizeTrackNames: true })
+        {
+            return null;
+        }
+
+        var template = settings.ResolveTemplate(track);
+        var found = FindDescription(track, [template, ..settings.NameTemplates], settings.CodecNames, null);
+        // A name no template wrote only matters to a template that writes {description}.
+        return found.Matched || UsesDescription(template) ? found.Text : "";
+    }
+
+    /// <summary>
+    /// The custom conversion's Description box: the profile's name for the track with this text as
+    /// {description}. A template without {description} gets the text in brackets at the end, and
+    /// text starting with "=" is the whole name, as typed.
+    /// </summary>
+    public static void DescribeTrack(this TrackSnapshot track, MediaFile file, Profile? profile,
+        IEnumerable<TrackSnapshot> siblings, string? text)
+    {
+        var typed = text?.Trim() ?? "";
+        if (typed.StartsWith('='))
+        {
+            track.Name = typed[1..].Trim();
+            return;
+        }
+
+        var settings = profile == null ? null : SettingsFor(track.Type, profile);
+        if (settings is not { StandardizeTrackNames: true })
+        {
+            track.Name = typed;
+            return;
+        }
+
+        var family = file.Snapshot.ContainerType.ToContainerFamily();
+        var totalOfType = siblings.Count(t => t.Type == track.Type);
+        track.Name = StandardizedName(track, settings, family, totalOfType, file.OriginalLanguage, typed) ?? "";
     }
 
     // Metadata the container cannot hold natively lives in the track name:
@@ -1351,14 +1397,50 @@ public static class MediaFileExtensions
         }
     }
 
+    /// <param name="namedBy">
+    /// Other templates that may have written the track's current name (the profile's default and
+    /// its flag overrides), so {description} can find the text a different template put there.
+    /// </param>
+    /// <param name="description">
+    /// Text for {description} that replaces whatever the current name holds: the Description box
+    /// of the custom conversion. Null reads it from the name.
+    /// </param>
     public static string? ApplyTrackNameTemplate(this IMediaTrack track, string template,
-        IReadOnlyDictionary<string, string>? codecNames = null, string? dolbyVisionTemplate = null)
+        IReadOnlyDictionary<string, string>? codecNames = null, string? dolbyVisionTemplate = null,
+        IEnumerable<string>? namedBy = null, string? description = null)
     {
         if (template.Length == 0)
         {
             return null;
         }
 
+        var found = description != null
+            ? new FoundDescription(description.Trim(), Matched: true)
+            : FindDescription(track, [template, ..namedBy ?? []], codecNames, dolbyVisionTemplate);
+        var text = found.Text;
+
+        // A commentary with nothing to say about it is described as one, unless the template
+        // already says Commentary ("{language} (Commentary) - {description}").
+        if (text.Length == 0 && track.IsCommentary && UsesDescription(template) && !SaysCommentary(template))
+        {
+            text = "Commentary";
+        }
+
+        var result = RenderTemplate(track, template, codecNames, dolbyVisionTemplate, text);
+
+        // A template without {description} keeps a description it recognised (typed in the
+        // custom conversion, or written by another template) in brackets at the end.
+        if (!UsesDescription(template) && found.Matched && found.Text.Length > 0)
+        {
+            result = result.Length == 0 ? found.Text : $"{result} ({found.Text})";
+        }
+
+        return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    private static string RenderTemplate(IMediaTrack track, string template,
+        IReadOnlyDictionary<string, string>? codecNames, string? dolbyVisionTemplate, string description)
+    {
         var iso = IsoLanguage.Find(track.LanguageName);
         var dvLayer = CodecNames.Rename(track.DvLayer, codecNames);
 
@@ -1372,14 +1454,14 @@ public static class MediaFileExtensions
             .Replace("{object}", track.AudioFeature.DisplayName(), StringComparison.OrdinalIgnoreCase)
             .Replace("{hdr}", CodecNames.Rename(track.HdrFormat, codecNames), StringComparison.OrdinalIgnoreCase)
             .Replace("{range}", track.Type == MediaTrackType.Video
-                ? CodecNames.Rename(HdrInfo.DynamicRange(track.HdrFormat, track.DvProfile), codecNames)
+                ? CodecNames.Rename(SdrOnlyAt2160p(HdrInfo.DynamicRange(track.HdrFormat, track.DvProfile), track.Resolution), codecNames)
                 : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{resolution}", ResolutionLabel.From(track.Resolution), StringComparison.OrdinalIgnoreCase)
             .Replace("{dvprofile}", track.DvProfile ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{dvlayer}", dvLayer, StringComparison.OrdinalIgnoreCase)
             .Replace("{dv}", HdrInfo.FormatDolbyVision(track.DvProfile, dvLayer, dolbyVisionTemplate),
                 StringComparison.OrdinalIgnoreCase)
-            .Replace("{description}", TrackDescription(track.Name), StringComparison.OrdinalIgnoreCase)
+            .Replace("{description}", description, StringComparison.OrdinalIgnoreCase)
             .Replace("{channels}", track.GetChannelLayout() ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{trackname}", track.Name ?? "", StringComparison.OrdinalIgnoreCase)
             .Replace("{hi}", track.IsHearingImpaired ? "SDH" : "", StringComparison.OrdinalIgnoreCase)
@@ -1391,9 +1473,92 @@ public static class MediaFileExtensions
             .Replace("{dub}", track.IsDub ? "Dub" : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{flags}", track.GetFlagLabels(), StringComparison.OrdinalIgnoreCase);
 
-        result = TidySeparators(result);
+        return TidySeparators(result);
+    }
 
-        return string.IsNullOrWhiteSpace(result) ? null : result;
+    /// <summary>
+    /// "SDR" is only written for 4K video (2160p and up), where HDR is the norm and SDR is worth
+    /// saying. Below that every file is SDR, so it says nothing, the same rule as tag_release and
+    /// Radarr's SDR custom format. An unknown resolution counts as below 4K.
+    /// </summary>
+    public static string? SdrOnlyAt2160p(string? range, string? dimensions) =>
+        range == HdrInfo.Sdr && ResolutionLabel.From(dimensions) is not ("2160p" or "4320p") ? "" : range;
+
+    public static bool UsesDescription(string? template) =>
+        template?.Contains("{description}", StringComparison.OrdinalIgnoreCase) == true;
+
+    // "Commentary" written in the template itself, or by {commentary} or {flags}.
+    private static bool SaysCommentary(string template) =>
+        Regex.Replace(template, @"\{(?!commentary\}|flags\})[^}]*\}", "", RegexOptions.IgnoreCase)
+            .Contains("commentary", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What {description} gives, and whether a template was recognised in the name.</summary>
+    private readonly record struct FoundDescription(string Text, bool Matched);
+
+    // Stands in for {description} while a template is rendered to be matched against a name.
+    private const string DescriptionMarker = "\u0001";
+
+    /// <summary>
+    /// The text {description} gives for this track: its current name without the part one of the
+    /// templates wrote. "English - AC-3 2.0 (Isolated score)" from "{language} - {codec} {channels}
+    /// ({description})" gives "Isolated score", and "English - AC-3 2.0" alone gives nothing, so a
+    /// rerun never nests the name in itself. A name no template wrote is the description as it is.
+    /// </summary>
+    public static string TrackDescription(this IMediaTrack track, IEnumerable<string> templates,
+        IReadOnlyDictionary<string, string>? codecNames = null, string? dolbyVisionTemplate = null)
+    {
+        return FindDescription(track, templates, codecNames, dolbyVisionTemplate).Text;
+    }
+
+    private static FoundDescription FindDescription(IMediaTrack track, IEnumerable<string> templates,
+        IReadOnlyDictionary<string, string>? codecNames, string? dolbyVisionTemplate)
+    {
+        var name = track.Name?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            return new FoundDescription("", Matched: false);
+        }
+
+        foreach (var template in templates.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct())
+        {
+            // The template with nothing for {description}: the name holds no description.
+            var bare = RenderTemplate(track, template, codecNames, dolbyVisionTemplate, "");
+            if (bare.Length > 0 && name == bare)
+            {
+                return new FoundDescription("", Matched: true);
+            }
+
+            if (UsesDescription(template))
+            {
+                var marked = RenderTemplate(track, template, codecNames, dolbyVisionTemplate, DescriptionMarker);
+                var at = marked.IndexOf(DescriptionMarker, StringComparison.Ordinal);
+                if (at < 0)
+                {
+                    continue;
+                }
+
+                var prefix = marked[..at];
+                var suffix = marked[(at + DescriptionMarker.Length)..];
+                if ((prefix.Length > 0 || suffix.Length > 0)
+                    && name.Length > prefix.Length + suffix.Length
+                    && name.StartsWith(prefix, StringComparison.Ordinal)
+                    && name.EndsWith(suffix, StringComparison.Ordinal))
+                {
+                    return new FoundDescription(name[prefix.Length..^suffix.Length].Trim(), Matched: true);
+                }
+            }
+            else if (bare.Length > 0 && name.StartsWith(bare + " (", StringComparison.Ordinal) && name.EndsWith(')'))
+            {
+                // Kept in brackets by a template without {description}.
+                var kept = name[(bare.Length + 2)..^1].Trim();
+                if (kept.Length > 0)
+                {
+                    return new FoundDescription(kept, Matched: true);
+                }
+            }
+        }
+
+        return new FoundDescription(TrackDescription(name), Matched: false);
     }
 
     // A separator standing on its own (" - ", " | ", " / ", " · ") between two
