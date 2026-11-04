@@ -1391,9 +1391,31 @@ public static class MediaFileExtensions
             .Replace("{dub}", track.IsDub ? "Dub" : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{flags}", track.GetFlagLabels(), StringComparison.OrdinalIgnoreCase);
 
-        result = Regex.Replace(result, @"\s{2,}", " ").Trim();
+        result = TidySeparators(result);
 
         return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    // A separator standing on its own (" - ", " | ", " / ", " · ") between two
+    // words. Dashes inside a word ("E-AC-3", "DTS-HD") never match.
+    private const string Separator = @"[-–—|/·]";
+
+    /// <summary>
+    /// Cleans up after empty tokens: "English - AC-3 5.1 - " (no {dub}) becomes
+    /// "English - AC-3 5.1", "English -  - PGS" becomes "English - PGS", and
+    /// brackets left empty ("()", "[]") go away.
+    /// </summary>
+    public static string TidySeparators(string name)
+    {
+        var text = Regex.Replace(name, @"\(\s*\)|\[\s*\]", " ");
+        text = Regex.Replace(text, @"\s{2,}", " ").Trim();
+        // Two or more separators in a row keep the first one.
+        text = Regex.Replace(text, $@"(?<=^|\s)({Separator})(?:\s+{Separator})+(?=\s|$)", "$1");
+        // Nothing before the first separator, or after the last one.
+        text = Regex.Replace(text, $@"^(?:{Separator}\s+)+", "");
+        text = Regex.Replace(text, $@"(?:\s+{Separator})+$", "");
+        text = Regex.Replace(text, $@"^{Separator}$", "");
+        return Regex.Replace(text, @"\s{2,}", " ").Trim();
     }
 
     // A name this template wrote on an earlier run wraps the description in the
