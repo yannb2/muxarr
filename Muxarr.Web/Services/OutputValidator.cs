@@ -71,6 +71,63 @@ public static class OutputValidator
         {
             throw new Exception("Output still has chapters; removal did not apply.");
         }
+
+        // Fork, from Ripparr's verify step: chapters the plan keeps must still be there.
+        if (target.HasChapters != false && source.Snapshot.HasChapters && !actual.Snapshot.HasChapters)
+        {
+            throw new Exception("Output lost the source's chapters. Refusing to replace the original.");
+        }
+    }
+
+    // Fork, from Ripparr's verify step: the names, languages and flags the plan
+    // asked for, compared with what came out (Matroska only: MP4 has no place for
+    // most flags). A difference is logged as a warning, not a failure: the file
+    // plays, a player only shows or picks something else than planned.
+    public static List<string> MetadataDifferences(MediaFile actual, ConversionPlan target)
+    {
+        var differences = new List<string>();
+        if (actual.Snapshot.ContainerType.ToContainerFamily() != ContainerFamily.Matroska)
+        {
+            return differences;
+        }
+
+        var tracks = actual.Snapshot.Tracks;
+        for (var i = 0; i < target.Tracks.Count && i < tracks.Count; i++)
+        {
+            var want = target.Tracks[i];
+            var got = tracks[i];
+            var words = new List<string>();
+            if (want.Name != null && !string.Equals(want.Name.Trim(), (got.Name ?? "").Trim(), StringComparison.Ordinal))
+            {
+                words.Add($"name '{got.Name}' instead of '{want.Name}'");
+            }
+
+            if (!string.IsNullOrEmpty(want.LanguageCode)
+                && !string.Equals(want.LanguageCode, got.LanguageCode, StringComparison.OrdinalIgnoreCase))
+            {
+                words.Add($"language '{got.LanguageCode}' instead of '{want.LanguageCode}'");
+            }
+
+            Flag(words, "default", want.IsDefault, got.IsDefault);
+            Flag(words, "forced", want.IsForced, got.IsForced);
+            Flag(words, "SDH", want.IsHearingImpaired, got.IsHearingImpaired);
+            Flag(words, "AD", want.IsVisualImpaired, got.IsVisualImpaired);
+            Flag(words, "commentary", want.IsCommentary, got.IsCommentary);
+            if (words.Count > 0)
+            {
+                differences.Add($"Track {i} ({got.Type}): {string.Join(", ", words)}");
+            }
+        }
+
+        return differences;
+    }
+
+    private static void Flag(List<string> words, string name, bool? want, bool got)
+    {
+        if (want is { } wanted && wanted != got)
+        {
+            words.Add($"{name} {(got ? "on" : "off")}, planned {(wanted ? "on" : "off")}");
+        }
     }
 
     // A remux is a stream copy, so the HDR format, Dolby Vision profile and

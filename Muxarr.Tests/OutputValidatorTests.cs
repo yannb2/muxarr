@@ -490,4 +490,48 @@ public class OutputValidatorTests
 
         OutputValidator.ValidateVideoFormats(actual, source, Keeping(source.Snapshot.Tracks[0]));
     }
+
+    // Fork: chapters the plan keeps must survive the remux.
+    [TestMethod]
+    public void KeptChapters_Lost_Throws()
+    {
+        var source = Media(trackTypes: MediaTrackType.Video);
+        source.Snapshot.HasChapters = true;
+        var actual = Media(trackTypes: MediaTrackType.Video);
+
+        var ex = Assert.ThrowsExactly<Exception>(() =>
+            OutputValidator.ValidateOrThrow(actual, source, Expected(MediaTrackType.Video)));
+        StringAssert.Contains(ex.Message, "lost the source's chapters");
+
+        actual.Snapshot.HasChapters = true;
+        OutputValidator.ValidateOrThrow(actual, source, Expected(MediaTrackType.Video));
+    }
+
+    [TestMethod]
+    public void MetadataDifferences_ListsWhatDidNotApply()
+    {
+        var actual = MediaWithTracks(10_000,
+            new TrackSnapshot { Type = MediaTrackType.Video, Name = "2160p - HEVC", IsDefault = true },
+            new TrackSnapshot { Type = MediaTrackType.Audio, Name = "English", LanguageCode = "eng", IsDefault = false },
+            new TrackSnapshot { Type = MediaTrackType.Subtitles, Name = "English (SDH)", LanguageCode = "eng" });
+        var target = new ConversionPlan
+        {
+            Tracks =
+            [
+                new TrackPlan { Type = MediaTrackType.Video, Name = "2160p - HEVC", IsDefault = true },
+                new TrackPlan { Type = MediaTrackType.Audio, Name = "English", LanguageCode = "eng", IsDefault = true },
+                new TrackPlan { Type = MediaTrackType.Subtitles, Name = "English (SDH)", LanguageCode = "ENG", IsHearingImpaired = true }
+            ]
+        };
+
+        var differences = OutputValidator.MetadataDifferences(actual, target);
+
+        Assert.HasCount(2, differences);
+        StringAssert.Contains(differences[0], "Track 1 (Audio): default off, planned on");
+        StringAssert.Contains(differences[1], "Track 2 (Subtitles): SDH off, planned on");
+
+        // MP4 has no place for most flags: nothing to compare.
+        actual.Snapshot.ContainerType = "MP4/QuickTime";
+        Assert.IsEmpty(OutputValidator.MetadataDifferences(actual, target));
+    }
 }

@@ -895,6 +895,10 @@ public class MediaConverterService(
         }
 
         OutputValidator.ValidateOrThrow(probed, conversion.MediaFile!, conversion.ConversionPlan, measuredEnds);
+        foreach (var difference in OutputValidator.MetadataDifferences(probed, conversion.ConversionPlan))
+        {
+            conversion.Log($"Warning: not as planned. {difference}", logger);
+        }
 
         conversion.Log("Validation of new file is ok!", logger);
         ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
