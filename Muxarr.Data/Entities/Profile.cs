@@ -209,6 +209,11 @@ public class TrackSettings
     public string TrackNameTemplate { get; set; } = string.Empty;
     public Dictionary<TrackFlag, string> TrackNameOverrides { get; set; } = new();
 
+    /// <summary>The default template and every flag override: the templates that can have named a track.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IEnumerable<string> NameTemplates =>
+        new[] { TrackNameTemplate }.Concat(TrackNameOverrides.Values).Where(t => !string.IsNullOrWhiteSpace(t));
+
     /// <summary>
     /// Words the {codec} placeholder writes, keyed by the detected codec label
     /// ("TrueHD", "TrueHD Atmos", "AC-3"). A missing or empty entry keeps the

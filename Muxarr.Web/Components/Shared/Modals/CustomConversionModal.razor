@@ -103,6 +103,20 @@
                            placeholder="(none)"
                            value="@track.Name"
                            @onchange="e => track.Name = e.Value?.ToString()"/>
+                    @if (_editor.DescriptionOf(track) is { } description)
+                    {
+                        <div class="input-group input-group-sm mt-1">
+                            <span class="input-group-text"
+                                  title="Fills {description} in the profile's name template. Without it in the template, the text goes in brackets at the end. Start with = to type the whole name.">
+                                <i class="bi bi-chat-left-text"></i>
+                            </span>
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   placeholder="Description"
+                                   value="@description"
+                                   @onchange="e => _editor.Describe(track, e.Value?.ToString())"/>
+                        </div>
+                    }
                     @if (_editor.OriginalNameOf(track) is { } originalName)
                     {
                         <div class="d-flex align-items-center gap-1 mt-1 small text-muted">
