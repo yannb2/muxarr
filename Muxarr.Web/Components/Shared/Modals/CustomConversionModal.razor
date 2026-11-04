@@ -225,6 +225,19 @@
 
     @if (_editor.CanEditTags)
     {
+        <div class="mt-3">
+            <label class="form-label small fw-semibold text-body-secondary mb-1" for="releaseLabel">
+                <i class="bi bi-award me-1"></i>Release label
+            </label>
+            <input id="releaseLabel" class="form-control form-control-sm" style="max-width: 320px;"
+                   placeholder="Criterion, Arrow, Shout! Factory..."
+                   value="@_editor.ReleaseLabel"
+                   @onchange="e => _editor.ReleaseLabel = e.Value?.ToString() ?? string.Empty"/>
+            <small class="text-muted d-block">
+                Written to the @CustomConversionEditor.ReleaseLabelTag tag, as Ripparr does; Jellyfin shows it as
+                "Release: ..." through edition_tags.py. Empty removes the tag.
+            </small>
+        </div>
         <details class="mt-3" open="@_editor.TagsChanged">
             <summary class="fw-semibold text-body-secondary small">
                 <i class="bi bi-tags me-1"></i>Global tags (@_editor.Tags.Count(t => !t.IsNew))
@@ -328,6 +341,7 @@
     [Parameter] [EditorRequired] public MediaFile File { get; set; } = default!;
     [Parameter] public Profile? Profile { get; set; }
     [Parameter] public List<Profile> Profiles { get; set; } = new();
+    [Parameter] public IReadOnlyDictionary<int, TrackFlagPreset>? Presets { get; set; }
 
     private CustomConversionEditor _editor = null!;
     private int _selectedProfileId;
@@ -336,6 +350,7 @@
     protected override void OnInitialized()
     {
         _editor = new CustomConversionEditor(File);
+        _editor.ApplyPresets(Presets);
         _selectedProfileId = Profile?.Id ?? Profiles.FirstOrDefault()?.Id ?? 0;
     }
 

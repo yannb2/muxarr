@@ -1,15 +1,43 @@
-﻿<div class="progress mt-1 position-relative d-flex align-items-center justify-content-center" style="height: 1.2rem;">
-    <div class="progress-bar start-0 position-absolute h-100" role="progressbar"
-         style="width: @(Progress)%">
+﻿@* Two bars while a conversion runs, as in Ripparr: the current step (blue, striped when the tool
+   gives no percentage) and the whole conversion (green). A finished or queued conversion only
+   has the whole-conversion bar. *@
+@if (Step is { } step)
+{
+    <div class="mux-progress-pair mt-1 small" title="Top: the current step. Bottom: the whole conversion.">
+        <div class="d-flex gap-2">
+            <span>@step.Name</span>
+            <span class="font-monospace ms-auto">@(step.Percent is { } done ? $"{done}%" : "")</span>
+        </div>
+        <div class="progress mb-1" style="height: 6px">
+            <div class="progress-bar @(step.Percent == null ? "progress-bar-striped progress-bar-animated w-100 opacity-50" : "")"
+                 style="@(step.Percent is { } p ? $"width: {p}%" : "")"></div>
+        </div>
+        <div class="d-flex gap-2 text-body-secondary">
+            <span>Whole conversion</span>
+            <span class="font-monospace ms-auto">@(Progress)%</span>
+        </div>
+        <div class="progress" style="height: 6px">
+            <div class="progress-bar bg-success" style="width: @(Progress)%"></div>
+        </div>
     </div>
-    <div class="px-2 z-3 @TextColor">@(Progress)%</div>
-</div>
+}
+else
+{
+    <div class="progress mt-1 position-relative d-flex align-items-center justify-content-center" style="height: 1.2rem;">
+        <div class="progress-bar bg-success start-0 position-absolute h-100" role="progressbar"
+             style="width: @(Progress)%">
+        </div>
+        <div class="px-2 z-3 @TextColor">@(Progress)%</div>
+    </div>
+}
 
 @code {
     [Parameter] [EditorRequired] public required MediaConversion Conversion { get; set; }
     [Inject] public required MediaConverterService MediaConverter { get; set; }
 
     private int Progress => MediaConverter.LiveProgress(Conversion.Id) ?? Conversion.Progress;
+
+    private LiveStepState? Step => MediaConverter.LiveStep(Conversion.Id);
 
     private string TextColor => Progress > 50 ? "text-white" : "text-body";
 }

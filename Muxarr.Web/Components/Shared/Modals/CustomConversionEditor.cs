@@ -143,6 +143,49 @@ public class CustomConversionEditor
         Tags = _file.Snapshot.GlobalTags.Select(t => new TagEdit(t.Name, t.Value)).ToList();
     }
 
+    /// <summary>The global tag a release label (Criterion, Arrow...) is written to, as in Ripparr.</summary>
+    public const string ReleaseLabelTag = "DISTRIBUTED_BY";
+
+    /// <summary>
+    /// The release label, kept in the DISTRIBUTED_BY global tag: typing fills the tag (adding it
+    /// when the file has none), and an empty box removes it.
+    /// </summary>
+    public string ReleaseLabel
+    {
+        get => Tags.FirstOrDefault(t => !t.Removed && t.Name.Trim() == ReleaseLabelTag)?.Value ?? "";
+        set
+        {
+            var text = value.Trim();
+            var tag = Tags.FirstOrDefault(t => t.Name.Trim() == ReleaseLabelTag);
+            if (tag == null)
+            {
+                if (text.Length > 0)
+                {
+                    Tags.Add(new TagEdit(ReleaseLabelTag, null) { Value = text });
+                }
+
+                return;
+            }
+
+            if (text.Length == 0)
+            {
+                if (tag.IsNew)
+                {
+                    Tags.Remove(tag);
+                }
+                else
+                {
+                    tag.Removed = true;
+                }
+
+                return;
+            }
+
+            tag.Removed = false;
+            tag.Value = text;
+        }
+    }
+
     /// <summary>The tags in the track name backup, when they differ from the file's.</summary>
     public IReadOnlyList<FileTag>? BackedUpTags =>
         _file.OriginalTrackNames?.GlobalTags is { Count: > 0 } backup
@@ -331,6 +374,30 @@ public class CustomConversionEditor
         track.ApplyTrackEdit(_file, _appliedProfile ?? _file.Profile, _tracks, edit);
     }
 
+    /// <summary>Flags chosen on the file page's Track checks ("Use this"), set before the modal opens.</summary>
+    public void ApplyPresets(IReadOnlyDictionary<int, TrackFlagPreset>? presets)
+    {
+        if (presets == null)
+        {
+            return;
+        }
+
+        foreach (var (index, preset) in presets)
+        {
+            if (_tracks.FirstOrDefault(t => t.Index == index) is not { } track)
+            {
+                continue;
+            }
+
+            Edit(track, t =>
+            {
+                t.IsHearingImpaired = preset.HearingImpaired ?? t.IsHearingImpaired;
+                t.IsCommentary = preset.Commentary ?? t.IsCommentary;
+                t.IsVisualImpaired = preset.VisualImpaired ?? t.IsVisualImpaired;
+            });
+        }
+    }
+
     public void SetLanguage(TrackSnapshot track, string? languageName)
     {
         if (string.IsNullOrEmpty(languageName))
@@ -416,3 +483,6 @@ public class CustomConversionEditor
         return plan;
     }
 }
+
+/// <summary>Flags to set on one track when the custom conversion opens; null leaves a flag as it is.</summary>
+public sealed record TrackFlagPreset(bool? HearingImpaired = null, bool? Commentary = null, bool? VisualImpaired = null);

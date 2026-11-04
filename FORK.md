@@ -38,9 +38,22 @@ A file's page has a Track checks card, taken from Ripparr:
   language) and says whether the track looks like SDH (sound descriptions, speaker labels, lyrics)
   or a commentary. It only reports: the flags are still set in Custom conversion.
 
+When the check disagrees with the track's flags, **Use this in Custom conversion** opens Custom
+conversion with those flags already set. A lossy stereo track after a multichannel one in the same
+language gets a **Commentary or AD?** hint (the file can't say which), with Commentary and AD buttons
+that do the same.
+
 Only 12 slices of 40 seconds, spread over the film past the titles and before the credits, are read
 with ffmpeg, so a 60 GB remux takes seconds, not a full read. VobSub and DVB picture subtitles are not
 read. The image ships Tesseract with English, French, German, Spanish and Italian.
+
+### Release label and progress
+
+- Custom conversion has a **Release label** box (Criterion, Arrow...) that writes the `DISTRIBUTED_BY`
+  global tag, as Ripparr does; Jellyfin shows it as "Release: ..." through edition_tags.py.
+- A running conversion shows two bars, as in Ripparr: the current step (remux, check, swap, rescan...)
+  and the whole conversion.
+- The sidebar's Docs link opens this file, and the version links to this fork.
 
 ## Image
 

@@ -1,4 +1,5 @@
 @using Muxarr.Core.Subtitles
+@using Muxarr.Web.Components.Shared.Modals
 @implements IDisposable
 
 @* Listen to audio tracks, preview subtitle tracks and check them for SDH and commentary, from a
@@ -51,6 +52,19 @@
                             @if (track.IsCommentary)
                             {
                                 <span class="badge text-bg-light border ms-1">Commentary</span>
+                            }
+                            @if (track.IsVisualImpaired)
+                            {
+                                <span class="badge text-bg-light border ms-1">AD</span>
+                            }
+                            @if (_unsure.Contains(track.Index))
+                            {
+                                <span class="badge text-bg-warning ms-1"
+                                      title="A stereo track after the multichannel one in the same language: a commentary or an audio description. The file does not say which; listen to it.">Commentary or AD?</span>
+                                <button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1" title="Open Custom conversion with this track marked as a commentary"
+                                        @onclick="() => Use(track, new TrackFlagPreset(Commentary: true))">Commentary</button>
+                                <button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1" title="Open Custom conversion with this track marked as an audio description"
+                                        @onclick="() => Use(track, new TrackFlagPreset(VisualImpaired: true))">AD</button>
                             }
                         </td>
                         <td class="text-nowrap text-end">
@@ -143,8 +157,13 @@
                                 }
                                 @if (FlagsDiffer(track, guess))
                                 {
-                                    <div class="text-muted">
-                                        <i class="bi bi-info-circle me-1"></i>The track's flags say otherwise: set them in Custom conversion if the check is right.
+                                    <div class="text-muted d-flex align-items-center flex-wrap gap-2 mt-1">
+                                        <span><i class="bi bi-info-circle me-1"></i>The track's flags say otherwise.</span>
+                                        <button class="btn btn-sm btn-outline-primary py-0"
+                                                title="Open Custom conversion with the SDH and commentary flags set as the check says"
+                                                @onclick="() => Use(track, new TrackFlagPreset(HearingImpaired: guess.Sdh, Commentary: guess.Commentary))">
+                                            Use this in Custom conversion
+                                        </button>
                                     </div>
                                 }
                             </td>
@@ -196,6 +215,19 @@
     private const int PreviewCount = 24;
 
     [Parameter, EditorRequired] public required MediaFile File { get; set; }
+
+    /// <summary>Opens Custom conversion with the flags the user picked here already set.</summary>
+    [Parameter] public EventCallback<IReadOnlyDictionary<int, TrackFlagPreset>> OnUse { get; set; }
+
+    private HashSet<int> _unsure = [];
+
+    protected override void OnParametersSet()
+    {
+        _unsure = TrackQualityScorer.CommentaryOrAudioDescription(File.Snapshot.Tracks);
+    }
+
+    private Task Use(TrackSnapshot track, TrackFlagPreset preset) =>
+        OnUse.InvokeAsync(new Dictionary<int, TrackFlagPreset> { [track.Index] = preset });
 
     private readonly Dictionary<int, TrackState> _states = new();
     private readonly CancellationTokenSource _cancel = new();

@@ -51,6 +51,29 @@ public class MediaConverterService(
         return active?.Id == conversionId ? active.Progress : null;
     }
 
+    private volatile LiveStepState? _liveStep;
+
+    /// <summary>The step the running conversion is on, and how far into it (null when the tool says nothing).</summary>
+    public LiveStepState? LiveStep(int conversionId)
+    {
+        var step = _liveStep;
+        return step?.ConversionId == conversionId ? step : null;
+    }
+
+    private void Step(MediaConversion conversion, string name, int? percent = null)
+    {
+        _liveStep = new LiveStepState(conversion.Id, name, percent);
+        ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
+    }
+
+    private void StepPercent(MediaConversion conversion, int percent)
+    {
+        if (_liveStep is { } step && step.ConversionId == conversion.Id && step.Percent != percent)
+        {
+            _liveStep = step with { Percent = percent };
+        }
+    }
+
     public void CancelCurrentConversion()
     {
         try
@@ -151,6 +174,7 @@ public class MediaConverterService(
         finally
         {
             _activeConversion = null;
+            _liveStep = null;
             _currentConversionCts.Dispose();
             _currentConversionCts = null;
         }
@@ -470,6 +494,7 @@ public class MediaConverterService(
         var dropsTracks = conversion.ConversionPlan.Tracks.Count < conversion.BeforeSnapshot!.Tracks.Count;
         if (dropsTracks || conversion.ConversionPlan.TrimToVideoLength)
         {
+            Step(conversion, "Measuring track lengths");
             var measured = await conversion.MediaFile.MeasureTrackEndsMs();
             measuredEnds = measured.Ends;
             if (measured.Ends == null)
@@ -497,6 +522,7 @@ public class MediaConverterService(
             await context.SaveChangesAsync(token);
             ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
 
+            Step(conversion, useFFmpeg ? "Remuxing with ffmpeg" : "Remuxing with mkvmerge", 0);
             if (useFFmpeg)
             {
                 await RunFFmpegRemuxAsync(conversion, delta, tmp, context, conversionTimeout, measuredEnds, token);
@@ -585,6 +611,7 @@ public class MediaConverterService(
         conversion.State = ConversionState.Processing;
         conversion.StartedDate ??= DateTime.UtcNow;
         conversion.Log("Tracks are optimal. Fixing metadata in-place with mkvpropedit..", logger);
+        Step(conversion, "Fixing metadata in place");
         await context.SaveChangesAsync(token);
         ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
 
@@ -829,6 +856,7 @@ public class MediaConverterService(
         var last = -1;
         return raw =>
         {
+            StepPercent(conversion, raw);
             var p = (int)(raw * 0.95);
             if (p == last)
             {
@@ -855,6 +883,7 @@ public class MediaConverterService(
             throw new Exception("Output file is missing or empty.");
         }
 
+        Step(conversion, "Checking the new file");
         // Reuse the scanner's parser so validation sees exactly what a future
         // rescan would see.
         var probed = new MediaFile { Path = tmp };
@@ -876,6 +905,7 @@ public class MediaConverterService(
         var swapCommitted = false;
         try
         {
+            Step(conversion, "Swapping in the new file", 0);
             conversion.Log("Renaming old file..", logger);
             File.Move(conversion.MediaFile.Path, backupFile);
 
@@ -886,6 +916,7 @@ public class MediaConverterService(
                 {
                     // File move is typically instant (atomic rename on same filesystem).
                     // Only uses meaningful progress for cross-filesystem copies.
+                    StepPercent(conversion, i);
                     conversion.Progress = 95 + (int)(i * 0.05);
                     ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
                 }, token);
@@ -906,13 +937,16 @@ public class MediaConverterService(
             throw;
         }
 
+        Step(conversion, "Rescanning");
         await scanner.ScanMediaFile(conversion.MediaFile, true, context, conversion.MediaFile.Profile);
         conversion.SizeAfter = conversion.MediaFile.Size;
         conversion.AfterSnapshot = conversion.MediaFile.Snapshot;
         conversion.SizeDifference = Math.Abs(conversion.SizeBefore - conversion.SizeAfter);
 
+        Step(conversion, "Telling Radarr or Sonarr");
         await UpdateArr(conversion, context);
 
+        Step(conversion, "Post-processing");
         await RunPostProcessing(conversion);
 
         // The swap is committed, a cancel landing now must not undo the outcome.
@@ -1131,6 +1165,9 @@ public enum QueueResult
     Hardlinked,
     AlreadyQueued
 }
+
+/// <summary>The step a running conversion is on; never stored.</summary>
+public sealed record LiveStepState(int ConversionId, string Name, int? Percent);
 
 public class ConverterProgressEvent(MediaConversion conversion)
 {
