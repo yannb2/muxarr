@@ -205,6 +205,13 @@ public class TrackSettings
     /// </summary>
     public bool KeepCompatibilityTrack { get; set; }
 
+    /// <summary>
+    /// Subtitles only, Matroska only: when every full subtitle track (not forced, not
+    /// commentary) a language keeps is SDH and one of them is PGS, read that track with
+    /// Tesseract and add an SRT of it with the SDH text taken out.
+    /// </summary>
+    public bool AddSrtWithoutSdh { get; set; }
+
     public bool StandardizeTrackNames { get; set; }
     public string TrackNameTemplate { get; set; } = string.Empty;
     public Dictionary<TrackFlag, string> TrackNameOverrides { get; set; } = new();

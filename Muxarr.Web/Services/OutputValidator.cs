@@ -23,18 +23,19 @@ public static class OutputValidator
         }
 
         var actualTracks = actual.Snapshot.Tracks;
-        if (actualTracks.Count != target.Tracks.Count)
+        var expectedTracks = target.OutputTracks();
+        if (actualTracks.Count != expectedTracks.Count)
         {
             throw new Exception(
-                $"Output has {actualTracks.Count} tracks, expected {target.Tracks.Count}.");
+                $"Output has {actualTracks.Count} tracks, expected {expectedTracks.Count}.");
         }
 
-        for (var i = 0; i < target.Tracks.Count; i++)
+        for (var i = 0; i < expectedTracks.Count; i++)
         {
-            if (actualTracks[i].Type != target.Tracks[i].Type)
+            if (actualTracks[i].Type != expectedTracks[i].Type)
             {
                 throw new Exception(
-                    $"Output track at position {i} is {actualTracks[i].Type}, expected {target.Tracks[i].Type}.");
+                    $"Output track at position {i} is {actualTracks[i].Type}, expected {expectedTracks[i].Type}.");
             }
         }
 
@@ -92,9 +93,10 @@ public static class OutputValidator
         }
 
         var tracks = actual.Snapshot.Tracks;
-        for (var i = 0; i < target.Tracks.Count && i < tracks.Count; i++)
+        var expected = target.OutputTracks();
+        for (var i = 0; i < expected.Count && i < tracks.Count; i++)
         {
-            var want = target.Tracks[i];
+            var want = expected[i];
             var got = tracks[i];
             var words = new List<string>();
             if (want.Name != null && !string.Equals(want.Name.Trim(), (got.Name ?? "").Trim(), StringComparison.Ordinal))

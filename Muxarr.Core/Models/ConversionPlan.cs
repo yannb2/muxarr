@@ -42,8 +42,69 @@ public class ConversionPlan : IMedia<TrackPlan>
     [System.Text.Json.Serialization.JsonIgnore]
     public string? ChaptersFile { get; set; }
 
+    // Set while a conversion runs: SRT files made from SDH picture subtitles,
+    // muxed in as extra tracks. Never stored.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<AddedSubtitle>? AddedSubtitles { get; set; }
+
+    // The tracks the output should have, in order: the planned source tracks
+    // with each added subtitle placed before the track it names. An added
+    // track has Index -n, n being its place in AddedSubtitles counted from 1,
+    // which is also the number of the file mkvmerge reads it from.
+    public List<TrackPlan> OutputTracks()
+    {
+        var added = AddedSubtitles ?? [];
+        if (added.Count == 0)
+        {
+            return Tracks;
+        }
+
+        var placed = new HashSet<int>();
+        var result = new List<TrackPlan>();
+        foreach (var track in Tracks)
+        {
+            for (var n = 0; n < added.Count; n++)
+            {
+                if (added[n].BeforeIndex == track.Index && placed.Add(n))
+                {
+                    result.Add(added[n].ToTrackPlan(n + 1));
+                }
+            }
+
+            result.Add(track);
+        }
+
+        for (var n = 0; n < added.Count; n++)
+        {
+            if (placed.Add(n))
+            {
+                result.Add(added[n].ToTrackPlan(n + 1));
+            }
+        }
+
+        return result;
+    }
+
     bool IMedia<TrackPlan>.HasChapters => HasChapters ?? false;
     bool IMedia<TrackPlan>.HasAttachments => HasAttachments ?? false;
+}
+
+// A subtitle file muxed into the output next to the source's tracks.
+// BeforeIndex: the source track it goes in front of; -1 puts it last.
+public sealed record AddedSubtitle(string Path, string LanguageCode, string Name, int BeforeIndex)
+{
+    public TrackPlan ToTrackPlan(int fileNumber) => new()
+    {
+        Index = -fileNumber,
+        Type = MediaTrackType.Subtitles,
+        Name = Name,
+        LanguageCode = LanguageCode,
+        IsDefault = false,
+        IsForced = false,
+        IsHearingImpaired = false,
+        IsVisualImpaired = false,
+        IsCommentary = false
+    };
 }
 
 // Desired state for a single track, or a delta of changes from source.

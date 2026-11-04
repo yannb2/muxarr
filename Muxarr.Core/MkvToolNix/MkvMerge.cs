@@ -141,7 +141,16 @@ public static class MkvMerge
         }
 
         command += $" \"{input}\"";
-        command += $" --track-order {string.Join(",", tracks.Select(t => $"0:{t.Index}"))}";
+
+        // Subtitle files made during the conversion (SRT without SDH), one file each.
+        foreach (var added in delta.AddedSubtitles ?? [])
+        {
+            command += $" --language 0:{added.LanguageCode} --track-name 0:{MkvToolNixHelper.EscapeValue(added.Name)}"
+                       + " --default-track-flag 0:0 --forced-display-flag 0:0 --hearing-impaired-flag 0:0"
+                       + $" --sub-charset 0:UTF-8 \"{added.Path}\"";
+        }
+
+        command += $" --track-order {string.Join(",", delta.OutputTracks().Select(t => t.Index < 0 ? $"{-t.Index}:0" : $"0:{t.Index}"))}";
 
         var lastProgress = 0;
         return await ProcessExecutor.ExecuteProcessAsync(MkvMergeExecutable, command, timeout,
