@@ -48,13 +48,15 @@ ARG FFMPEG_VERSION
 ARG MKVTOOLNIX_VERSION
 ARG DOVI_TOOL_VERSION
 
-# mkvtoolnix from the project's own repo; the Ubuntu one in the base image is v82 from 2024.
+# Tesseract (with English, French, German, Spanish and Italian) reads picture subtitles for the
+# SDH and commentary check. mkvtoolnix from the project's own repo; the Ubuntu one in the base image is v82 from 2024.
 # The key is checked against the fingerprint published on mkvtoolnix.download/authenticity.html.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gosu \
     curl \
     ca-certificates \
     gnupg \
+    tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesseract-ocr-deu tesseract-ocr-spa tesseract-ocr-ita \
     && . /etc/os-release \
     && curl -fsSL https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg -o /usr/share/keyrings/mkvtoolnix.gpg \
     && gpg --show-keys --with-colons /usr/share/keyrings/mkvtoolnix.gpg | grep -q '^fpr:::::::::D9199745B0545F2E8197062B0F92290A445B9007:' \

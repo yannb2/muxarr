@@ -1,0 +1,372 @@
+@using Muxarr.Core.Subtitles
+@implements IDisposable
+
+@* Listen to audio tracks, preview subtitle tracks and check them for SDH and commentary, from a
+   few slices of the file (a remux is too big to read whole for this). Audio and pictures come
+   back as data URLs through the circuit: the app's HTTP endpoints are API-key only. *@
+
+<div class="border rounded p-4">
+    <div class="d-flex align-items-center mb-3">
+        <i class="bi bi-ear text-primary me-2"></i>
+        <h5 class="mb-0">Track checks</h5>
+        <span class="text-muted small ms-3">
+            Listen to 20 seconds of an audio track, look at a subtitle track, or check whether it is SDH or commentary.
+            Only short slices of the file are read.
+        </span>
+    </div>
+
+    @if (Tracks.Count == 0)
+    {
+        <span class="text-muted">No audio or subtitle tracks.</span>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                <tr>
+                    <th style="width: 35px;">#</th>
+                    <th>Track</th>
+                    <th style="width: 1%;"></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var track in Tracks)
+                {
+                    var state = StateOf(track);
+                    <tr>
+                        <td>@track.Index</td>
+                        <td>
+                            <i class="bi @(track.Type == MediaTrackType.Audio ? "bi-volume-up" : "bi-badge-cc") text-muted me-1"></i>
+                            <span class="fw-semibold">@track.LanguageName</span>
+                            <code class="ms-2">@track.Codec.FormatCodec()</code>
+                            @if (!string.IsNullOrEmpty(track.Name))
+                            {
+                                <span class="text-muted ms-2">@track.Name</span>
+                            }
+                            @if (track.IsHearingImpaired)
+                            {
+                                <span class="badge text-bg-light border ms-1">SDH</span>
+                            }
+                            @if (track.IsCommentary)
+                            {
+                                <span class="badge text-bg-light border ms-1">Commentary</span>
+                            }
+                        </td>
+                        <td class="text-nowrap text-end">
+                            @if (track.Type == MediaTrackType.Audio)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" disabled="@state.Busy" @onclick="() => Listen(track)">
+                                    @if (state.Busy)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-play-circle me-1"></i>
+                                    }
+                                    Listen
+                                </button>
+                            }
+                            else if (TrackSampler.IsUnreadablePictures(track.Codec))
+                            {
+                                <span class="text-muted small" title="Only PGS picture subtitles can be read here.">Can't read @track.Codec.FormatCodec()</span>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-secondary me-1" disabled="@state.Busy" @onclick="() => Preview(track)">
+                                    <i class="bi bi-eye me-1"></i>Preview
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" disabled="@state.Busy" @onclick="() => Check(track)">
+                                    @if (state.Busy)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-search me-1"></i>
+                                    }
+                                    Check SDH and commentary
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                    @if (state.Busy && state.Status != null)
+                    {
+                        <tr>
+                            <td></td>
+                            <td colspan="2" class="small text-muted">@state.Status</td>
+                        </tr>
+                    }
+                    @if (state.Error != null)
+                    {
+                        <tr>
+                            <td></td>
+                            <td colspan="2"><div class="alert alert-danger py-1 px-2 mb-0 small">@state.Error</div></td>
+                        </tr>
+                    }
+                    @if (state.Audio != null)
+                    {
+                        <tr>
+                            <td></td>
+                            <td colspan="2">
+                                <audio controls autoplay src="@state.Audio" style="width: 100%; max-width: 480px;"></audio>
+                                <div class="small text-muted">From @Clock(state.AudioAt), stereo preview.</div>
+                            </td>
+                        </tr>
+                    }
+                    @if (state.Guess is { } guess)
+                    {
+                        <tr>
+                            <td></td>
+                            <td colspan="2" class="small">
+                                <div>
+                                    @if (guess.Sdh)
+                                    {
+                                        <span class="badge text-bg-warning me-1">Looks like SDH</span>
+                                    }
+                                    @if (guess.Commentary)
+                                    {
+                                        <span class="badge text-bg-warning me-1">Looks like commentary</span>
+                                    }
+                                    @if (!guess.Sdh && !guess.Commentary)
+                                    {
+                                        <span class="badge text-bg-success me-1">Looks like plain subtitles</span>
+                                    }
+                                    <span class="text-muted">@guess.Reason</span>
+                                </div>
+                                @if (guess.French is { Region: not null } french)
+                                {
+                                    <div class="text-muted">
+                                        Reads like French from @(french.Region == "CA" ? "Québec" : "France") (@french.Evidence).
+                                    </div>
+                                }
+                                @if (FlagsDiffer(track, guess))
+                                {
+                                    <div class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>The track's flags say otherwise: set them in Custom conversion if the check is right.
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (state.Pictures != null || state.Texts != null)
+                    {
+                        <tr>
+                            <td></td>
+                            <td colspan="2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small text-muted">@state.Shown of @state.Found captions found in the slices.</span>
+                                    <button class="btn btn-sm btn-link text-muted p-0" @onclick="() => state.ClosePreview()">Close</button>
+                                </div>
+                                <div class="mux-sub-preview border rounded p-2" style="max-height: 420px; overflow-y: auto; background: #1b1b1b;">
+                                    @if (state.Pictures != null)
+                                    {
+                                        @foreach (var (at, image) in state.Pictures)
+                                        {
+                                            <div class="mb-2 text-center">
+                                                <div class="small text-secondary text-start">@Clock(at)</div>
+                                                <img src="@image" alt="Caption at @Clock(at)" style="max-width: 100%; max-height: 90px;"/>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @foreach (var cue in state.Texts!)
+                                        {
+                                            <div class="mb-2 text-light small d-flex">
+                                                <span class="text-secondary me-3 flex-shrink-0">@Clock(cue.Start)</span>
+                                                <span style="white-space: pre-line;">@cue.Text</span>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>How many captions the preview shows, picked evenly from the slices.</summary>
+    private const int PreviewCount = 24;
+
+    [Parameter, EditorRequired] public required MediaFile File { get; set; }
+
+    private readonly Dictionary<int, TrackState> _states = new();
+    private readonly CancellationTokenSource _cancel = new();
+
+    private List<TrackSnapshot> Tracks => File.Snapshot.Tracks
+        .Where(t => t.Type is MediaTrackType.Audio or MediaTrackType.Subtitles)
+        .OrderBy(t => t.Index)
+        .ToList();
+
+    private TrackState StateOf(TrackSnapshot track)
+    {
+        if (!_states.TryGetValue(track.Index, out var state))
+        {
+            _states[track.Index] = state = new TrackState();
+        }
+
+        return state;
+    }
+
+    private long Duration(TrackSnapshot track) => track.DurationMs > 0 ? track.DurationMs : File.Snapshot.DurationMs;
+
+    private static string WorkFolder() => Path.Combine(Path.GetTempPath(), "muxarr-checks", Guid.NewGuid().ToString("N"));
+
+    private async Task Listen(TrackSnapshot track)
+    {
+        var state = StateOf(track);
+        state.Audio = null;
+        await Run(state, "Reading 20 seconds of audio...", async folder =>
+        {
+            var duration = Duration(track);
+            var at = duration > 120_000 ? TimeSpan.FromMilliseconds(duration / 3.0) : TimeSpan.Zero;
+            var bytes = await TrackSampler.ListenAsync(File.Path, track.Index, duration, folder, at, _cancel.Token);
+            state.AudioAt = at;
+            state.Audio = "data:audio/mp4;base64," + Convert.ToBase64String(bytes);
+        });
+    }
+
+    private async Task Preview(TrackSnapshot track)
+    {
+        var state = StateOf(track);
+        state.ClosePreview();
+        await Run(state, $"Reading {TrackSampler.Slices} slices of the track...", async folder =>
+        {
+            var sample = await TrackSampler.SubtitlesAsync(File.Path, track.Index, track.Codec, Duration(track), folder, _cancel.Token);
+            state.Found = sample.Count;
+            if (sample.Pictures.Count > 0)
+            {
+                var picked = Spread(sample.Pictures, PreviewCount);
+                state.Pictures = picked.Select(c => (c.Start, "data:image/png;base64," + Convert.ToBase64String(Png.Rgba(c.Render())))).ToList();
+                state.Shown = picked.Count;
+            }
+            else
+            {
+                state.Texts = Spread(sample.Texts, PreviewCount * 2);
+                state.Shown = state.Texts.Count;
+            }
+
+            if (sample.Count == 0)
+            {
+                state.Error = "No captions in the slices read: the track may be empty or only forced captions.";
+            }
+        });
+    }
+
+    private async Task Check(TrackSnapshot track)
+    {
+        var state = StateOf(track);
+        state.Guess = null;
+        await Run(state, $"Reading {TrackSampler.Slices} slices of the track...", async folder =>
+        {
+            var sample = await TrackSampler.SubtitlesAsync(File.Path, track.Index, track.Codec, Duration(track), folder, _cancel.Token);
+            if (sample.Count == 0)
+            {
+                state.Error = "No captions in the slices read: nothing to check.";
+                return;
+            }
+
+            if (sample.Pictures.Count > 0)
+            {
+                state.Status = $"Reading {Math.Min(sample.Pictures.Count, SubtitleClassifier.SampleSize)} captions with Tesseract...";
+                await InvokeAsync(StateHasChanged);
+            }
+
+            var captions = await TrackSampler.ReadAsync(sample, track.LanguageCode, "tesseract", folder, _cancel.Token);
+            // Ripparr also weighs "a second, longer track in the same language"; the file page
+            // has no caption counts for the other tracks, so that clue is left out here.
+            state.Guess = SubtitleClassifier.Guess(captions, false);
+        });
+    }
+
+    private async Task Run(TrackState state, string status, Func<string, Task> work)
+    {
+        state.Busy = true;
+        state.Error = null;
+        state.Status = status;
+        await InvokeAsync(StateHasChanged);
+
+        var folder = WorkFolder();
+        try
+        {
+            await work(folder);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception e)
+        {
+            state.Error = e.Message;
+        }
+        finally
+        {
+            state.Busy = false;
+            state.Status = null;
+            try
+            {
+                if (Directory.Exists(folder))
+                {
+                    Directory.Delete(folder, true);
+                }
+            }
+            catch (IOException)
+            {
+                // Temp files: left for the OS to clean.
+            }
+        }
+
+        if (!_cancel.IsCancellationRequested)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static List<T> Spread<T>(IReadOnlyList<T> items, int count)
+    {
+        if (items.Count <= count)
+        {
+            return items.ToList();
+        }
+
+        return Enumerable.Range(0, count).Select(i => items[(int)((long)i * items.Count / count)]).ToList();
+    }
+
+    private static bool FlagsDiffer(TrackSnapshot track, TrackGuess guess) =>
+        guess.Sdh != track.IsHearingImpaired || guess.Commentary != track.IsCommentary;
+
+    private static string Clock(TimeSpan t) => $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}";
+
+    public void Dispose()
+    {
+        _cancel.Cancel();
+        _cancel.Dispose();
+    }
+
+    private sealed class TrackState
+    {
+        public bool Busy { get; set; }
+        public string? Status { get; set; }
+        public string? Error { get; set; }
+        public string? Audio { get; set; }
+        public TimeSpan AudioAt { get; set; }
+        public TrackGuess? Guess { get; set; }
+        public List<(TimeSpan At, string Image)>? Pictures { get; set; }
+        public List<SrtCue>? Texts { get; set; }
+        public int Found { get; set; }
+        public int Shown { get; set; }
+
+        public void ClosePreview()
+        {
+            Pictures = null;
+            Texts = null;
+        }
+    }
+}

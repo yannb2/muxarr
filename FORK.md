@@ -28,6 +28,20 @@ subtitle name, the same as Ripparr's disc page:
 - A commentary with nothing typed gets "Commentary", unless its template already says it
   (`{language} (Commentary) - {description} - {codec}`).
 
+### Track checks
+
+A file's page has a Track checks card, taken from Ripparr:
+
+- **Listen** plays 20 seconds of an audio track (from a third of the way in), as stereo AAC.
+- **Preview** shows up to 24 captions of a subtitle track: pictures for PGS, text for SRT and ASS.
+- **Check SDH and commentary** reads up to 120 captions (Tesseract OCR for PGS, in the track's
+  language) and says whether the track looks like SDH (sound descriptions, speaker labels, lyrics)
+  or a commentary. It only reports: the flags are still set in Custom conversion.
+
+Only 12 slices of 40 seconds, spread over the film past the titles and before the credits, are read
+with ffmpeg, so a 60 GB remux takes seconds, not a full read. VobSub and DVB picture subtitles are not
+read. The image ships Tesseract with English, French, German, Spanish and Italian.
+
 ## Image
 
 Every push to `master` builds `ghcr.io/yannb2/muxarr:dev` (amd64 and arm64).

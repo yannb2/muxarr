@@ -87,6 +87,13 @@ public static partial class ToolCatalog
             UpstreamSource = "quietvoid/dovi_tool",
             UpstreamPattern = PlainVersion(),
             ReleaseNotes = "https://github.com/quietvoid/dovi_tool/releases"
+        },
+        new()
+        {
+            Id = "tesseract", Name = "Tesseract", Purpose = "Reads picture subtitles (OCR) for the SDH and commentary check on a file's page.",
+            Command = "tesseract", VersionArguments = ["--version"],
+            VersionPattern = TesseractVersion()
+            // From Ubuntu's packages: it moves with the base image, not with a pin.
         }
     ];
 
@@ -151,6 +158,9 @@ public static partial class ToolCatalog
 
     [GeneratedRegex(@"version n?(\d+\.\d+(?:\.\d+)?)")]
     private static partial Regex FfmpegVersion();
+
+    [GeneratedRegex(@"tesseract v?(\d+\.\d+\.\d+)")]
+    private static partial Regex TesseractVersion();
 
     [GeneratedRegex(@"<version>\s*(\d+\.\d+(?:\.\d+)?)\s*</version>")]
     private static partial Regex XmlVersion();
