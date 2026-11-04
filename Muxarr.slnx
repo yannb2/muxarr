@@ -2,6 +2,9 @@
     <Folder Name="/Deployment/">
         <File Path=".github/workflows/build-and-deploy.yml"/>
     </Folder>
+    <Folder Name="/arrkit/">
+        <Project Path="arrkit/src/Arrkit/Arrkit.csproj"/>
+    </Folder>
     <Project Path="Muxarr.Core/Muxarr.Core.csproj"/>
     <Project Path="Muxarr.Data/Muxarr.Data.csproj"/>
     <Project Path="Muxarr.Tests/Muxarr.Tests.csproj"/>

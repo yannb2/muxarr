@@ -55,6 +55,19 @@ read. The image ships Tesseract with English, French, German, Spanish and Italia
   and the whole conversion.
 - The sidebar's Docs link opens this file, and the version links to this fork.
 
+## Shared code: arrkit
+
+The subtitle code behind Track checks (PGS reader, OCR, SDH cleaner, classifier, track sampler) is
+shared with Ripparr in [arrkit](https://github.com/yannb2/arrkit), a git submodule in `arrkit/`.
+Clone with `--recurse-submodules`, or run `git submodule update --init` in an existing clone:
+
+```sh
+git clone --recurse-submodules https://github.com/yannb2/muxarr
+git -C arrkit pull origin main && git add arrkit   # newer arrkit, then commit
+```
+
+Its tests live in arrkit, not here.
+
 ## Image
 
 Every push to `master` builds `ghcr.io/yannb2/muxarr:dev` (amd64 and arm64).
