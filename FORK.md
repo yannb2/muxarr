@@ -67,6 +67,21 @@ Before the new file replaces the original, the fork also checks (from Ripparr's 
 - in MKV files, each track's name, language and default/forced/SDH/AD/commentary flags as planned (a
   warning in the conversion log: the file plays, a player only shows or picks something else).
 
+### SRT without SDH
+
+The profile's Subtitles section has **Add an SRT without SDH when a language only has SDH subtitles**
+(off by default, MKV only), as Ripparr has. When every full subtitle track (not forced, not commentary)
+the profile keeps in a language is SDH and one of them is PGS, the conversion:
+
+1. extracts that PGS track with mkvextract and reads every caption with Tesseract;
+2. takes the SDH text out ([door slams], JOHN:, ♪) and drops captions that were nothing else;
+3. muxes the SRT in with the remux, named and placed by running the profile on the file as if the SRT
+   were already there, so the next scan leaves it alone. If the profile would drop an SRT, none is made.
+
+A track that gives no SRT (Tesseract missing, no text) is logged and the file is converted as if the
+setting were off. Custom conversions never add one. Reading a film takes a few minutes; files already
+in the library get it the next time they are queued.
+
 ## Shared code: arrkit
 
 The subtitle code behind Track checks (PGS reader, OCR, SDH cleaner, classifier, track sampler) is

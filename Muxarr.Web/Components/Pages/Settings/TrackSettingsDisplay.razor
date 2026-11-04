@@ -84,6 +84,15 @@ else
                 </ToolTip>
             }
 
+            @if (Settings.AddSrtWithoutSdh)
+            {
+                <ToolTip Tip="Adds an SRT without SDH when a language only has SDH picture subtitles">
+                    <span class="badge text-bg-info me-1">
+                        <i class="bi bi-plus-lg me-1"></i>SRT
+                    </span>
+                </ToolTip>
+            }
+
             @if (Settings.KeepCompatibilityTrack)
             {
                 <ToolTip Tip="Keeps an E-AC-3/AC-3/AAC track next to lossless or DTS audio">

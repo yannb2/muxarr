@@ -450,8 +450,45 @@ public class MediaConverterService(
         // against shifting snapshots risks strategy/output disagreement.
         var result = ConversionPlanner.Plan(conversion.BeforeSnapshot!, conversion.ConversionPlan);
         var delta = result.Delta;
+        var strategy = result.Strategy;
 
-        if (result.Strategy == ConversionPlanner.ConversionStrategy.Skip)
+        // An SRT without SDH is a new track, so it always takes a remux.
+        var srtCandidates = conversion.IsCustomConversion
+            ? []
+            : SdhFreeSrt.Find(conversion.MediaFile, conversion.ConversionPlan, conversion.MediaFile.Profile);
+        var srtFolder = Path.Combine(Path.GetTempPath(), "muxarr-srt", conversion.Id.ToString());
+        if (srtCandidates.Count > 0)
+        {
+            conversion.State = ConversionState.Processing;
+            conversion.StartedDate ??= DateTime.UtcNow;
+            await context.SaveChangesAsync(token);
+            ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
+            try
+            {
+                await AddSrtsWithoutSdhAsync(conversion, delta, srtCandidates, srtFolder, token);
+            }
+            catch (OperationCanceledException)
+            {
+                DeleteFolder(conversion, srtFolder);
+                conversion.Log("Conversion was cancelled.", logger);
+                conversion.State = ConversionState.Cancelled;
+                await context.SaveChangesAsync(CancellationToken.None);
+                ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
+                return;
+            }
+
+            // No SRT came out: the file is handled as if the setting were off.
+            if (delta.AddedSubtitles != null)
+            {
+                strategy = ConversionPlanner.ConversionStrategy.Remux;
+            }
+            else
+            {
+                DeleteFolder(conversion, srtFolder);
+            }
+        }
+
+        if (strategy == ConversionPlanner.ConversionStrategy.Skip)
         {
             conversion.StartedDate ??= DateTime.UtcNow;
             conversion.Log("File already optimized, skipping.", logger);
@@ -460,7 +497,7 @@ public class MediaConverterService(
             conversion.SizeDifference = 0;
             conversion.State = ConversionState.Completed;
         }
-        else if (result.Strategy == ConversionPlanner.ConversionStrategy.MetadataEdit)
+        else if (strategy == ConversionPlanner.ConversionStrategy.MetadataEdit)
         {
             await RunMkvPropEditInPlaceAsync(conversion, delta, context, token);
         }
@@ -563,6 +600,8 @@ public class MediaConverterService(
                 conversion.LogError($"Failed to clean up temp file: {ex.Message}", logger);
             }
 
+            DeleteFolder(conversion, srtFolder);
+
             try
             {
                 await context.SaveChangesAsync();
@@ -573,6 +612,55 @@ public class MediaConverterService(
             }
 
             ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
+        }
+    }
+
+    private void DeleteFolder(MediaConversion conversion, string folder)
+    {
+        try
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            conversion.Log($"Could not remove {folder}: {ex.Message}", logger);
+        }
+    }
+
+    // Reads each SDH picture track with Tesseract and hands the SRTs to the remux.
+    // A track that gives no SRT is logged and the conversion goes on without it.
+    private async Task AddSrtsWithoutSdhAsync(MediaConversion conversion, ConversionPlan delta,
+        List<SdhFreeSrt.Candidate> candidates, string folder, CancellationToken token)
+    {
+        var added = new List<AddedSubtitle>();
+        for (var n = 0; n < candidates.Count; n++)
+        {
+            var candidate = candidates[n];
+            var number = n;
+            Step(conversion, $"Making an SRT without SDH ({candidate.LanguageCode})", 0);
+            try
+            {
+                var srt = await SdhFreeSrt.MakeAsync(conversion.MediaFile!.Path, candidate,
+                    Path.Combine(folder, number.ToString()), line => conversion.Log(line, logger),
+                    p => StepPercent(conversion, (int)(p * 100)), token);
+                if (srt != null)
+                {
+                    added.Add(new AddedSubtitle(srt, candidate.LanguageCode, candidate.Name, candidate.BeforeIndex));
+                }
+            }
+            catch (Exception e) when (e is InvalidOperationException or IOException or InvalidDataException)
+            {
+                conversion.Log($"Warning: no SRT for track {candidate.SourceIndex}: {e.Message}", logger);
+            }
+        }
+
+        if (added.Count > 0)
+        {
+            delta.AddedSubtitles = added;
+            conversion.ConversionPlan.AddedSubtitles = added;
         }
     }
 
