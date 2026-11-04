@@ -38,6 +38,10 @@ A file's page has a Track checks card, taken from Ripparr:
   language) and says whether the track looks like SDH (sound descriptions, speaker labels, lyrics)
   or a commentary. It only reports: the flags are still set in Custom conversion.
 
+Tick **Compare** on two or more PGS tracks and **Side by side** lines their captions up by time (from the
+same slices), as Ripparr's compare page does: handy to tell the forced track from the full one, or SDH from
+plain subtitles.
+
 When the check disagrees with the track's flags, **Use this in Custom conversion** opens Custom
 conversion with those flags already set. A lossy stereo track after a multichannel one in the same
 language gets a **Commentary or AD?** hint (the file can't say which), with Commentary and AD buttons
