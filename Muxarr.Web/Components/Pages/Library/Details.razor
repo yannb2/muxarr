@@ -263,6 +263,13 @@
             </div>
         }
 
+        @if (File.Snapshot.Tracks.Any(t => t.Type is MediaTrackType.Audio or MediaTrackType.Subtitles))
+        {
+            <div class="col-12">
+                <TrackChecks File="File"/>
+            </div>
+        }
+
         @if (File.OriginalTrackNames is { Tracks.Count: > 0 } backup)
         {
             <div class="col-12">
