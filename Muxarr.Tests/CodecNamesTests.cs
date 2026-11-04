@@ -113,6 +113,28 @@ public class CodecNamesTests
     }
 
     [TestMethod]
+    public void Template_EmptyTokenLeavesNoDash()
+    {
+        var names = new Dictionary<string, string> { ["E-AC-3"] = "Dolby E-AC-3" };
+        var eac3 = Audio(codec: nameof(AudioCodec.Eac3), channels: 6);
+
+        Assert.AreEqual("English - Dolby E-AC-3 5.1", eac3.ApplyTrackNameTemplate("{language} - {codec} {channels} - {dub}", names));
+        Assert.AreEqual("English - Dolby E-AC-3 5.1", eac3.ApplyTrackNameTemplate("{language} - {forced} - {codec} {channels}", names));
+        Assert.AreEqual("Dolby E-AC-3 5.1", eac3.ApplyTrackNameTemplate("{forced} - {codec} {channels}", names));
+        Assert.AreEqual("English - Dolby E-AC-3 5.1", eac3.ApplyTrackNameTemplate("{language} - {codec} {channels} ({commentary})", names));
+        Assert.AreEqual("English | Dolby E-AC-3", eac3.ApplyTrackNameTemplate("{language} | {dub} | {codec}", names));
+    }
+
+    [TestMethod]
+    public void TidySeparators_KeepsDashesInsideWords()
+    {
+        Assert.AreEqual("English - DTS-HD MA 5.1", MediaFileExtensions.TidySeparators("English - DTS-HD MA 5.1 -"));
+        Assert.AreEqual("English - E-AC-3 - Dub", MediaFileExtensions.TidySeparators("English - E-AC-3 - Dub"));
+        Assert.AreEqual("English (Forced) - PGS", MediaFileExtensions.TidySeparators("English (Forced) -  - PGS"));
+        Assert.AreEqual("", MediaFileExtensions.TidySeparators(" - "));
+    }
+
+    [TestMethod]
     public void Template_ObjectPlaceholder()
     {
         var track = Atmos(nameof(AudioCodec.Eac3), channels: 6);

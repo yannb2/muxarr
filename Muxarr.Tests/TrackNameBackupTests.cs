@@ -212,7 +212,7 @@ public class TrackNameBackupTests
         track.OriginalName = "Surround 7.1";
 
         Assert.AreEqual("English (Surround 7.1)", track.ApplyTrackNameTemplate("{language} ({originalname})"));
-        Assert.AreEqual("English ()", Audio(1).ApplyTrackNameTemplate("{language} ({originalname})"));
+        Assert.AreEqual("English", Audio(1).ApplyTrackNameTemplate("{language} ({originalname})"), "empty brackets go");
     }
 
     [TestMethod]
