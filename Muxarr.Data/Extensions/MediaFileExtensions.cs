@@ -1454,7 +1454,7 @@ public static class MediaFileExtensions
             .Replace("{object}", track.AudioFeature.DisplayName(), StringComparison.OrdinalIgnoreCase)
             .Replace("{hdr}", CodecNames.Rename(track.HdrFormat, codecNames), StringComparison.OrdinalIgnoreCase)
             .Replace("{range}", track.Type == MediaTrackType.Video
-                ? CodecNames.Rename(HdrInfo.DynamicRange(track.HdrFormat, track.DvProfile), codecNames)
+                ? CodecNames.Rename(SdrOnlyAt2160p(HdrInfo.DynamicRange(track.HdrFormat, track.DvProfile), track.Resolution), codecNames)
                 : "", StringComparison.OrdinalIgnoreCase)
             .Replace("{resolution}", ResolutionLabel.From(track.Resolution), StringComparison.OrdinalIgnoreCase)
             .Replace("{dvprofile}", track.DvProfile ?? "", StringComparison.OrdinalIgnoreCase)
@@ -1475,6 +1475,14 @@ public static class MediaFileExtensions
 
         return TidySeparators(result);
     }
+
+    /// <summary>
+    /// "SDR" is only written for 4K video (2160p and up), where HDR is the norm and SDR is worth
+    /// saying. Below that every file is SDR, so it says nothing, the same rule as tag_release and
+    /// Radarr's SDR custom format. An unknown resolution counts as below 4K.
+    /// </summary>
+    public static string? SdrOnlyAt2160p(string? range, string? dimensions) =>
+        range == HdrInfo.Sdr && ResolutionLabel.From(dimensions) is not ("2160p" or "4320p") ? "" : range;
 
     public static bool UsesDescription(string? template) =>
         template?.Contains("{description}", StringComparison.OrdinalIgnoreCase) == true;

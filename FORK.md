@@ -10,6 +10,11 @@ It adds a few things on top of upstream, one milestone at a time:
 | v0.3 | "Custom rules" track order (forced first, language priority, codec order) and a "Forced only" subtitle default |
 | v0.4 | HDR and Dolby Vision detection (profile, FEL/MEL via dovi_tool) and a video track name template |
 
+### SDR only at 2160p
+
+`{range}` in the video track name writes "SDR" only for 4K video (2160p and up). Below 4K every file is
+SDR, so nothing is written, the same rule as tag_release, Radarr's SDR custom format and Ripparr.
+
 ### Track descriptions
 
 `{description}` in a track name template is the text that isn't from the template: the current name

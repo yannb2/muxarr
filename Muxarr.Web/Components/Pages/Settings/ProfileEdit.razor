@@ -184,8 +184,8 @@
                                 <small class="form-text text-muted d-block">
                                     Placeholders: <code>{codec}</code>, <code>{resolution}</code> (2160p, 1080p),
                                     <code>{hdr}</code> (HDR10, HDR10+, HLG),
-                                    <code>{range}</code> (like <code>{hdr}</code>, plus SDR for video with no HDR or
-                                    Dolby Vision),
+                                    <code>{range}</code> (like <code>{hdr}</code>, plus SDR for 2160p video with no HDR
+                                    or Dolby Vision),
                                     <code>{dv}</code> (Dolby Vision Profile 7 FEL), <code>{dvprofile}</code> (7, 8.1),
                                     <code>{dvlayer}</code> (FEL, MEL), <code>{trackname}</code>.
                                     FEL/MEL needs dovi_tool, which the image includes. Leave empty to clear video track
@@ -201,6 +201,13 @@
                                     <code>@HdrInfo.DefaultDolbyVisionTemplate</code>; <code>DV P{dvprofile} {dvlayer}</code>
                                     gives "DV P7 FEL". Rename HDR10, HDR10+, HLG, FEL and MEL in the list below.
                                 </small>
+                                <div class="alert alert-secondary small py-2 mt-2 mb-2">
+                                    <i class="bi bi-info-circle me-1"></i><strong>SDR only at 2160p.</strong>
+                                    <code>{range}</code> writes "SDR" only for 4K video (2160p and up), where HDR is the
+                                    norm and SDR is worth knowing. Below 4K every file is SDR, so nothing is written: a
+                                    1080p track gets no range at all. The same rule as tag_release, Radarr's SDR custom
+                                    format and Ripparr.
+                                </div>
                                 <div class="mt-2 text-muted small">
                                     <i class="bi bi-eye me-1"></i>Preview:
                                     <div class="mt-1">
@@ -386,6 +393,7 @@
         new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "7", DvLayer = HdrInfo.Fel, Resolution = "3840x2160" },
         new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10, DvProfile = "8.1", Resolution = "3840x1600" },
         new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), HdrFormat = HdrInfo.Hdr10 },
+        new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Hevc), Resolution = "3840x2160" },
         new() { Type = MediaTrackType.Video, Codec = nameof(VideoCodec.Avc), Resolution = "1920x1080" }
     ];
 
