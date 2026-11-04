@@ -31,6 +31,34 @@ public static class TrackQualityScorer
     private const int SecondaryContent = 1; // dub / audio description
     private const int CommentaryContent = 0;
 
+    public static bool IsLossless(IMediaTrack track) => LosslessAudioCodecs.Contains(track.GetAudioCodec());
+
+    /// <summary>
+    /// Audio tracks that are likely a commentary or an audio description, as Ripparr flags them: a
+    /// lossy stereo or mono track after a multichannel one in the same language, with neither
+    /// flag set. The file can't say which of the two it is; listening does.
+    /// </summary>
+    public static HashSet<int> CommentaryOrAudioDescription(IEnumerable<IMediaTrack> tracks)
+    {
+        var audio = tracks.Where(t => t.Type == MediaTrackType.Audio).OrderBy(t => t.Index).ToList();
+        var unsure = new HashSet<int>();
+        for (var i = 0; i < audio.Count; i++)
+        {
+            var track = audio[i];
+            if (IsLossless(track) || track.AudioChannels is < 1 or > 2 || track.IsCommentary || track.IsVisualImpaired)
+            {
+                continue;
+            }
+
+            if (audio.Take(i).Any(o => o.AudioChannels > 2 && o.LanguageCode == track.LanguageCode))
+            {
+                unsure.Add(track.Index);
+            }
+        }
+
+        return unsure;
+    }
+
     /// <summary>
     /// Scores an audio track for deduplication. Higher = kept. Content tier
     /// (main &gt; dub/AD &gt; commentary) always wins first; the strategy then

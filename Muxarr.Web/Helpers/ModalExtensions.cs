@@ -36,12 +36,14 @@ public static class ModalExtensions
         this IModalService modal,
         MediaFile file,
         List<Profile> profiles,
-        Profile? profile = null)
+        Profile? profile = null,
+        IReadOnlyDictionary<int, TrackFlagPreset>? presets = null)
     {
         var parameters = new ModalParameters()
             .Add(nameof(CustomConversionModal.File), file)
             .Add(nameof(CustomConversionModal.Profiles), profiles)
-            .Add(nameof(CustomConversionModal.Profile), profile);
+            .Add(nameof(CustomConversionModal.Profile), profile)
+            .Add(nameof(CustomConversionModal.Presets), presets);
 
         var options = new ModalOptions { Size = ModalSize.Large };
         var result = modal.Show<CustomConversionModal>("Custom Conversion", parameters, options);

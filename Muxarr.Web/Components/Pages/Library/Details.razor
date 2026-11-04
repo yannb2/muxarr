@@ -1,5 +1,6 @@
 ﻿@page "/library/{Id:int}"
 @using Muxarr.Web.Components.Pages.Conversions
+@using Muxarr.Web.Components.Shared.Modals
 @inherits DisposableComponent
 @attribute [StreamRendering]
 
@@ -266,7 +267,7 @@
         @if (File.Snapshot.Tracks.Any(t => t.Type is MediaTrackType.Audio or MediaTrackType.Subtitles))
         {
             <div class="col-12">
-                <TrackChecks File="File"/>
+                <TrackChecks File="File" OnUse="p => CustomConversion(p)"/>
             </div>
         }
 
@@ -436,9 +437,11 @@
         }
     }
 
-    private async Task CustomConversion()
+    private Task CustomConversion() => CustomConversion(null);
+
+    private async Task CustomConversion(IReadOnlyDictionary<int, TrackFlagPreset>? presets)
     {
-        var customTarget = await ModalService.ShowCustomConversion(File!, _profiles, _selectedProfile);
+        var customTarget = await ModalService.ShowCustomConversion(File!, _profiles, _selectedProfile, presets);
         if (customTarget == null)
         {
             return;
