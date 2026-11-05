@@ -28,8 +28,8 @@ public class JellyfinSettings
             "seconds. Events without a file (Queue finished, Test) still use the refresh above.")]
     public bool RefreshFileOnly { get; set; }
 
-    [Field("Muxarr path prefix", Placeholder = "/movies",
-        HelpText = "Only when Jellyfin sees the files under another path: the start of the path as Muxarr sees it.")]
+    [Field("Remuxarr path prefix", Placeholder = "/movies",
+        HelpText = "Only when Jellyfin sees the files under another path: the start of the path as Remuxarr sees it.")]
     public string MuxarrPathPrefix { get; set; } = "";
 
     [Field("Jellyfin path prefix", Placeholder = "/data/movies",

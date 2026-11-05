@@ -98,7 +98,7 @@ public class WebhookPayload
     }
 
     /// <summary>
-    /// Whether this is an event type Muxarr cares about.
+    /// Whether this is an event type Remuxarr cares about.
     /// </summary>
     public bool IsActionable => EventType.ToLowerInvariant() is "download" or "rename";
 

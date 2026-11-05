@@ -9,7 +9,7 @@ public class NtfySettings
     [Field("Server URL", Type = FieldType.Url, Placeholder = "https://ntfy.sh")]
     public string Url { get; set; } = "";
 
-    [Field("Topic", Placeholder = "muxarr")]
+    [Field("Topic", Placeholder = "remuxarr")]
     public string Topic { get; set; } = "";
 
     [Field("Access Token", Type = FieldType.Password,

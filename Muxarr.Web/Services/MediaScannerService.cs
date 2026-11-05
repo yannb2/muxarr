@@ -356,7 +356,7 @@ public class MediaScannerService(
     }
 
     // Records the names the file arrived with, in the folder's sidecar and on the
-    // row. A file muxarr already converted is read from before its first
+    // row. A file Remuxarr already converted is read from before its first
     // conversion, so names renamed before the backup was turned on come back too.
     private async Task BackupTrackNames(MediaFile dbFile, AppDbContext context)
     {
@@ -400,7 +400,7 @@ public class MediaScannerService(
         file.HasRemovableChapters = profile is { RemoveChapters: true } && file.Snapshot.HasChapters;
     }
 
-    // A file edited or restored outside muxarr would plan against the wrong snapshot.
+    // A file edited or restored outside Remuxarr would plan against the wrong snapshot.
     public async Task ScanChangedFiles(IEnumerable<MediaFile> files, AppDbContext context)
     {
         foreach (var file in files)

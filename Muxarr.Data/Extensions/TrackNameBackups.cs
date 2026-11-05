@@ -22,7 +22,7 @@ public static class TrackNameBackups
     /// <summary>An unchanged file only touches its sidecar this often, to keep its entry from being pruned.</summary>
     public static readonly TimeSpan RefreshAfter = TimeSpan.FromDays(7);
 
-    // A remux by muxarr can trim a few frames; a different release of the same
+    // A remux by Remuxarr can trim a few frames; a different release of the same
     // title almost never lands this close.
     private const long DurationToleranceMs = 5_000;
 
@@ -55,7 +55,7 @@ public static class TrackNameBackups
     /// Finds or creates the entry for the file at <paramref name="path"/>, writes the
     /// folder's sidecar and returns the entry for the database. Names are only ever
     /// taken once: from the sidecar, then the stored copy, then
-    /// <paramref name="firstSeenTracks"/> (the file before muxarr first converted it),
+    /// <paramref name="firstSeenTracks"/> (the file before Remuxarr first converted it),
     /// then the tracks as they are now.
     /// </summary>
     public static TrackNameBackup Sync(string path, long size, long durationMs,
@@ -137,7 +137,7 @@ public static class TrackNameBackups
                     LanguageCode = t.LanguageCode,
                     LanguageName = t.LanguageName,
                     AudioChannels = t.AudioChannels,
-                    // Flags as muxarr will read them, name included, so the
+                    // Flags as Remuxarr will read them, name included, so the
                     // converted track still pairs up after the name is gone.
                     IsForced = t.IsForced || TrackNameFlags.ContainsForced(t.Name),
                     IsHearingImpaired = t.IsHearingImpaired || TrackNameFlags.ContainsHearingImpaired(t.Name),

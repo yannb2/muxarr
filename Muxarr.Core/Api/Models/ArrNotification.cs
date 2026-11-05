@@ -36,7 +36,7 @@ public class ArrNotification
     {
         return new ArrNotification
         {
-            Name = "Muxarr",
+            Name = "Remuxarr",
             Implementation = "Webhook",
             ConfigContract = "WebhookSettings",
             OnDownload = true,

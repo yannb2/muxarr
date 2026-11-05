@@ -46,6 +46,6 @@ public class RenamePreview
     public string NewPath { get; set; } = string.Empty;
 }
 
-// Which arr file a Muxarr file is, enough to rescan and rename it. Folder is the series
+// Which arr file a Remuxarr file is, enough to rescan and rename it. Folder is the series
 // or movie directory as the arr sees it; rename previews are relative to it.
 public record ArrFile(int ParentId, int FileId, bool IsMovie, string Folder);

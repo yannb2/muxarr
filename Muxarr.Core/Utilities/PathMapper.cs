@@ -5,7 +5,7 @@ namespace Muxarr.Core.Utilities;
 public static class PathMapper
 {
     /// <summary>
-    /// Rewrites a path reported by Sonarr/Radarr to the equivalent path Muxarr can access,
+    /// Rewrites a path reported by Sonarr/Radarr to the equivalent path Remuxarr can access,
     /// using the longest matching From prefix so configuration order doesn't matter. Matching
     /// is case- and separator-insensitive ('/' and '\' are equivalent) and only on whole
     /// segments, so "/data" never matches "/database". The remainder is re-joined using the

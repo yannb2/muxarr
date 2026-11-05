@@ -177,9 +177,9 @@
             }
 
             var webhookUrl = GetWebhookUrl?.Invoke() ?? "";
-            if (string.IsNullOrWhiteSpace(webhookUrl) || webhookUrl.Contains("<muxarr-host>"))
+            if (string.IsNullOrWhiteSpace(webhookUrl) || webhookUrl.Contains("<remuxarr-host>"))
             {
-                ToastService.ShowWarning("Please set the Muxarr URL first.");
+                ToastService.ShowWarning("Please set the Remuxarr URL first.");
                 return;
             }
 
@@ -204,8 +204,8 @@
             }
             else
             {
-                // The arr tests the webhook before saving it, so this is usually "it cannot reach the Muxarr URL".
-                ToastService.ShowError($"{Service.Name} could not set up the webhook: {error}. Check that it can reach the Muxarr URL.");
+                // The arr tests the webhook before saving it, so this is usually "it cannot reach the Remuxarr URL".
+                ToastService.ShowError($"{Service.Name} could not set up the webhook: {error}. Check that it can reach the Remuxarr URL.");
             }
         }
         catch (Exception ex)
@@ -237,7 +237,7 @@
             if (existing == null)
             {
                 _isWebhookConnected = false;
-                ToastService.ShowInfo($"No Muxarr webhook found in {Service.Name}.");
+                ToastService.ShowInfo($"No Remuxarr webhook found in {Service.Name}.");
                 return;
             }
 

@@ -2,7 +2,7 @@
 @using Muxarr.Core.Api.Models
 @using Muxarr.Core.Config
 @using Muxarr.Core.Utilities
-<p class="text-muted">Use the API to integrate Muxarr with dashboards and external tools.</p>
+<p class="text-muted">Use the API to integrate Remuxarr with dashboards and external tools.</p>
 
 <div class="row g-4">
     <div class="col-lg-6">
@@ -70,7 +70,7 @@
         var config = context.Configs.GetOrDefault<WebhookConfig>();
         _apiKey = config.ApiKey;
         _baseUrl = string.IsNullOrWhiteSpace(config.MuxarrUrl)
-            ? "http://<muxarr-host>:8183"
+            ? "http://<remuxarr-host>:8183"
             : config.MuxarrUrl.TrimEnd('/');
     }
 
@@ -108,7 +108,7 @@
     private string ConversionsResponseExample => ConversionsExampleJson.Value;
 
     private string HomepageExample =>
-        $@"- Muxarr:
+        $@"- Remuxarr:
             icon: mdi-movie-filter
             href: {_baseUrl}
     widget:

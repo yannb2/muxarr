@@ -22,7 +22,7 @@
     </div>
 
     <p class="text-body-secondary small">
-        Every tool is built into the image at a pinned version. Muxarr only looks for newer versions
+        Every tool is built into the image at a pinned version. Remuxarr only looks for newer versions
         @if (Tools.UpstreamCheckedAt is { } at)
         {
             <span>(last look <TimeAgo DateTime="at"/>)</span>
@@ -30,7 +30,7 @@
         and never installs anything: an update is a new image, proposed each week as a pull request on GitHub.
         @if (!Tools.UpstreamEnabled)
         {
-            <span>The daily look is off (<code>Muxarr__Updates__Enabled=false</code>); the button still looks.</span>
+            <span>The daily look is off (<code>Remuxarr__Updates__Enabled=false</code>); the button still looks.</span>
         }
     </p>
 

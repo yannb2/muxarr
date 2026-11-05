@@ -71,7 +71,7 @@ await builder.RunWithLoggingAsync(async b =>
     {
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AppDbContext>>();
-        await context.Initialize(logger, app.Configuration.GetValue<bool>("Muxarr:Auth:Reset"));
+        await context.Initialize(logger, (app.Configuration.GetValue<bool>("Remuxarr:Auth:Reset") || app.Configuration.GetValue<bool>("Muxarr:Auth:Reset")));
     }
 
     // Subscribes to converter events in its constructor, so it has to exist before the first conversion.

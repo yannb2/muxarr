@@ -339,7 +339,7 @@ public sealed class NotificationService
         {
             var payload = new NotificationPayload
             {
-                Title = "Muxarr Test",
+                Title = "Remuxarr Test",
                 Body = "If you see this, notifications are working!",
                 EventType = NotificationEventType.Test
             };
@@ -369,7 +369,7 @@ public sealed class NotificationService
                 ("Conversion Completed", $"{name} - {BuildSizeChangeSummary(conversion.SizeBefore, conversion.SizeAfter)}"),
             NotificationEventType.Failed =>
                 ("Conversion Failed", $"{name} - {lastError}"),
-            _ => ("Muxarr", name)
+            _ => ("Remuxarr", name)
         };
 
         return new NotificationPayload
