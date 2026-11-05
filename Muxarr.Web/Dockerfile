@@ -6,7 +6,7 @@ ARG DOVI_TOOL_VERSION=2.3.4
 
 # ffmpeg static build from BtbN (linked from ffmpeg.org). Debian's
 # apt ffmpeg is 5.1 - too old to round-trip MP4 udta.name titles.
-FROM debian:12-slim AS ffmpeg-dl
+FROM debian:13-slim AS ffmpeg-dl
 ARG FFMPEG_VERSION
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -25,7 +25,7 @@ RUN set -eux; \
     /out/ffmpeg -version
 
 # dovi_tool static (musl) build, used only to tell Dolby Vision profile 7 FEL from MEL.
-FROM debian:12-slim AS dovi-dl
+FROM debian:13-slim AS dovi-dl
 ARG DOVI_TOOL_VERSION
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -43,7 +43,7 @@ RUN set -eux; \
     tar -xzf /tmp/dovi_tool.tar.gz -C /out; \
     /out/dovi_tool --version
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-resolute
 ARG FFMPEG_VERSION
 ARG MKVTOOLNIX_VERSION
 ARG DOVI_TOOL_VERSION
