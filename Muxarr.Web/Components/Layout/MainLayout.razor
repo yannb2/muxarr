@@ -2,7 +2,7 @@
 @inherits LayoutComponentBase
 
 <div class="mux-page-wrapper" data-bs-theme="@(IsDarkMode ? "dark" : "light")">
-    <BlazoredToasts/>
+    <BlazoredToasts Position="Blazored.Toast.Configuration.ToastPosition.BottomRight" Timeout="6"/>
 
     <CascadingBlazoredModal>
         <CascadingValue Value="this">
