@@ -4,6 +4,6 @@ public class TitleHelper
 {
     public static string GetTitle(string title)
     {
-        return "Remuxarr - " + title;
+        return title + " · Remuxarr";
     }
 }

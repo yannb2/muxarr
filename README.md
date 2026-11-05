@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" alt="Remuxarr" width="120"/>
+  <img src="Muxarr.Web/wwwroot/favicon.svg" alt="Remuxarr" width="120"/>
 </p>
 
 # Remuxarr
