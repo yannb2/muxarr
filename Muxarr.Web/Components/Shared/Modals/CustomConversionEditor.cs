@@ -143,19 +143,39 @@ public class CustomConversionEditor
         Tags = _file.Snapshot.GlobalTags.Select(t => new TagEdit(t.Name, t.Value)).ToList();
     }
 
-    /// <summary>The global tag a release label (Criterion, Arrow...) is written to, as in Ripparr.</summary>
-    public const string ReleaseLabelTag = "DISTRIBUTED_BY";
+    /// <summary>
+    /// The global tag a release label (Criterion, Arrow...) is written to, as in Ripparr: the standard
+    /// Matroska LABEL, "the imprint on the disc".
+    /// </summary>
+    public const string ReleaseLabelTag = "LABEL";
+
+    /// <summary>Where the release label was kept before 1.1.2 (and Ripparr 0.4.33): read, and moved to LABEL on an edit.</summary>
+    public const string OldReleaseLabelTag = "DISTRIBUTED_BY";
 
     /// <summary>
-    /// The release label, kept in the DISTRIBUTED_BY global tag: typing fills the tag (adding it
-    /// when the file has none), and an empty box removes it.
+    /// The release label, kept in the LABEL global tag: typing fills the tag (adding it when the
+    /// file has none), and an empty box removes it. A file tagged before 1.1.2 shows its
+    /// DISTRIBUTED_BY value; any edit writes LABEL and removes DISTRIBUTED_BY.
     /// </summary>
     public string ReleaseLabel
     {
-        get => Tags.FirstOrDefault(t => !t.Removed && t.Name.Trim() == ReleaseLabelTag)?.Value ?? "";
+        get => (Tags.FirstOrDefault(t => !t.Removed && t.Name.Trim() == ReleaseLabelTag)
+                ?? Tags.FirstOrDefault(t => !t.Removed && t.Name.Trim() == OldReleaseLabelTag))?.Value ?? "";
         set
         {
             var text = value.Trim();
+            foreach (var old in Tags.Where(t => t.Name.Trim() == OldReleaseLabelTag).ToList())
+            {
+                if (old.IsNew)
+                {
+                    Tags.Remove(old);
+                }
+                else
+                {
+                    old.Removed = true;
+                }
+            }
+
             var tag = Tags.FirstOrDefault(t => t.Name.Trim() == ReleaseLabelTag);
             if (tag == null)
             {

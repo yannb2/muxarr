@@ -118,8 +118,10 @@ read. The image ships Tesseract with English, French, German, Spanish and Italia
 
 ### Release label and progress
 
-- Custom conversion has a **Release label** box (Criterion, Arrow...) that writes the `DISTRIBUTED_BY`
-  global tag, as Ripparr does; Jellyfin shows it as "Release: ..." through edition_tags.py.
+- Custom conversion has a **Release label** box (Criterion, Arrow...) that writes the standard Matroska
+  `LABEL` global tag ("the imprint on the disc"), as Ripparr does; Jellyfin shows it as "Release: ..."
+  through edition_tags.py. Files tagged before 1.1.2 have it in `DISTRIBUTED_BY`: the box shows it and
+  moves it to `LABEL` when you change it.
 - A running conversion shows two bars, as in Ripparr: the current step (remux, check, swap, rescan...)
   and the whole conversion.
 - The sidebar's Docs link opens this file, and the version links to the repository.
