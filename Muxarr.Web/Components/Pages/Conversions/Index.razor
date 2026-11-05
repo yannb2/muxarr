@@ -143,6 +143,15 @@
             <ItemsPerPage Parent="this"/>
         </div>
     </div>
+    @if (HidesActive)
+    {
+        <div class="small text-muted mb-2">
+            <i class="bi bi-info-circle me-1"></i>
+            @ActiveCount waiting or running @(ActiveCount == 1 ? "file is" : "files are") in Active Conversions above, so they're left out here.
+            Pick <a href="javascript:void(0)" @onclick='() => FilterByState("New")'>New</a> or
+            <a href="javascript:void(0)" @onclick='() => FilterByState("Processing")'>Processing</a> to list them.
+        </div>
+    }
     <Loader IsLoading="IsLoading">
         <div class="table-responsive">
             <table class="table table-striped mux-card-table">
@@ -247,6 +256,11 @@
     private const int QueuePreviewSize = 5;
     private readonly string[] _stateOptions = ["All", "New", "Processing", "Completed", "Failed"];
 
+    // "All" leaves out waiting and running files while the Active Conversions card lists them,
+    // unless a search is typed (so a queued file can still be found by name).
+    private bool HidesActive => _stateFilter == "All" && string.IsNullOrWhiteSpace(SearchTerm) && ActiveCount > 0;
+    private int ActiveCount => _queuedCount + (_currentConversion != null ? 1 : 0);
+
     private MediaConversion? _currentConversion;
     private List<MediaConversion> _nextQueued = [];
     private int _queuedCount;
@@ -303,6 +317,11 @@
         if (_stateFilter != "All" && Enum.TryParse<ConversionState>(_stateFilter, out var state))
         {
             query = query.Where(c => c.State == state);
+        }
+        else if (HidesActive)
+        {
+            // Waiting and running files are already in the Active Conversions card.
+            query = query.Where(c => c.State != ConversionState.New && c.State != ConversionState.Processing);
         }
 
         var result = await query.Sort(CurrentSortProperty, IsAscending).FindPagedAsync(Page, PageSize, true);
