@@ -702,3 +702,38 @@
         gap: 0.5rem;
     }
 }
+
+/* ---- Toasts: Blazored.Toast drawn like the sister apps' Bootstrap toasts (bottom right, solid colour) ---- */
+
+.blazored-toast-container .blazored-toast {
+    width: 22rem !important;
+    padding: 0.75rem 1rem !important;
+    border: 0 !important;
+    border-radius: var(--bs-border-radius) !important;
+    box-shadow: var(--bs-box-shadow) !important;
+    color: #fff !important;
+    animation-duration: 0.3s;
+}
+
+.blazored-toast-container .blazored-toast .blazored-toast-icon {
+    color: inherit !important;
+    font-size: 1.1rem !important;
+    padding-right: 0.6rem !important;
+}
+
+.blazored-toast-container .blazored-toast .blazored-toast-message {
+    font-weight: 400 !important;
+}
+
+.blazored-toast-container .blazored-toast-success { background-color: var(--bs-success) !important; }
+.blazored-toast-container .blazored-toast-error { background-color: var(--bs-danger) !important; }
+.blazored-toast-container .blazored-toast-info { background-color: var(--bs-primary) !important; }
+.blazored-toast-container .blazored-toast-warning { background-color: var(--bs-warning); color: #000; }
+
+.blazored-toast-container .blazored-toast-close-icon {
+    filter: invert(1);
+}
+
+.blazored-toast-container .blazored-toast-warning .blazored-toast-close-icon {
+    filter: none;
+}
