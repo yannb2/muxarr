@@ -1,0 +1,185 @@
+@using Microsoft.Extensions.Diagnostics.HealthChecks
+@using Muxarr.Core.Config
+@inject IDbContextFactory<AppDbContext> ContextFactory
+@inject HealthCheckService Health
+@inject Arrkit.Logging.MemoryLog Log
+
+<p class="text-muted">
+    What Remuxarr runs with: its folders (a missing one is not mounted in the container), the tools it needs and
+    what is in its database. Nothing here changes a setting; the other tabs do.
+</p>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Folders</div>
+            <table class="table table-sm mb-0 small">
+                <tbody>
+                @foreach (var folder in _folders)
+                {
+                    <tr>
+                        <td class="text-body-secondary text-nowrap">@folder.Name</td>
+                        <td class="text-break"><code>@folder.Path</code></td>
+                        <td class="text-end text-nowrap">
+                            @if (folder.Missing)
+                            {
+                                <span class="text-danger" title="Not found in the container: is it mounted?"><i class="bi bi-x-circle me-1"></i>missing</span>
+                            }
+                            else
+                            {
+                                @folder.Free
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold d-flex align-items-center">
+                <span class="me-auto">Tools and database</span>
+                <button class="btn btn-sm btn-outline-secondary py-0" @onclick="CheckHealth" disabled="@_checking" title="Run the checks again">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+            <table class="table table-sm mb-0 small">
+                <tbody>
+                @if (_health == null)
+                {
+                    <tr><td class="text-body-secondary"><span class="spinner-border spinner-border-sm me-2"></span>Checking...</td></tr>
+                }
+                else
+                {
+                    @foreach (var (name, entry) in _health.Entries)
+                    {
+                        <tr>
+                            <td class="text-nowrap">
+                                <i class="bi @(entry.Status == HealthStatus.Healthy ? "bi-check-circle-fill text-success" : entry.Status == HealthStatus.Degraded ? "bi-exclamation-triangle-fill text-warning" : "bi-x-circle-fill text-danger") me-1"></i>@name
+                            </td>
+                            <td class="text-body-secondary">@entry.Description</td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+            <div class="card-footer small text-body-secondary bg-transparent">
+                Versions, pins and updates are on the <a href="tools">Tools</a> page.
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Settings</div>
+            <table class="table table-sm mb-0 small">
+                <tbody>
+                <tr><td class="text-body-secondary">Version</td><td>@AppInfo.Version</td></tr>
+                <tr><td class="text-body-secondary">Profiles</td><td>@_profiles</td></tr>
+                @foreach (var integration in _integrations)
+                {
+                    <tr><td class="text-body-secondary">@integration.Type</td><td>@integration.Name (<span class="text-break">@integration.Url</span>)</td></tr>
+                }
+                @if (_integrations.Count == 0)
+                {
+                    <tr><td class="text-body-secondary">Sonarr / Radarr</td><td>not set up</td></tr>
+                }
+                <tr><td class="text-body-secondary">Remuxarr URL (for webhooks)</td><td class="text-break">@(string.IsNullOrWhiteSpace(_webhookUrl) ? "not set" : _webhookUrl)</td></tr>
+                <tr><td class="text-body-secondary">Notifications</td><td>@_notificationsOn on, @_notificationsOff off</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Database</div>
+            <table class="table table-sm mb-0 small">
+                <tbody>
+                <tr><td class="text-body-secondary">Files in the library</td><td>@_files.ToString("N0")</td></tr>
+                <tr><td class="text-body-secondary">Conversions waiting or running</td><td>@_waiting.ToString("N0")</td></tr>
+                <tr><td class="text-body-secondary">Conversions done</td><td>@_done.ToString("N0")</td></tr>
+                <tr><td class="text-body-secondary">Conversions failed</td><td>@_failed.ToString("N0")</td></tr>
+                <tr><td class="text-body-secondary">Size</td><td>@_dbSize</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private record FolderRow(string Name, string Path, bool Missing, string Free);
+
+    private List<FolderRow> _folders = [];
+    private List<Integration> _integrations = [];
+    private HealthReport? _health;
+    private bool _checking;
+    private int _profiles, _files, _waiting, _done, _failed, _notificationsOn, _notificationsOff;
+    private string _webhookUrl = "";
+    private string _dbSize = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using (var context = await ContextFactory.CreateDbContextAsync())
+        {
+            var profiles = await context.Profiles.AsNoTracking().ToListAsync();
+            _profiles = profiles.Count;
+            _integrations = await context.Integrations.AsNoTracking().OrderBy(i => i.Type).ThenBy(i => i.Name).ToListAsync();
+            _files = await context.MediaFiles.CountAsync();
+            _waiting = await context.MediaConversions.CountAsync(c => c.State == ConversionState.New || c.State == ConversionState.Processing);
+            _done = await context.MediaConversions.CountAsync(c => c.State == ConversionState.Completed);
+            _failed = await context.MediaConversions.CountAsync(c => c.State == ConversionState.Failed);
+            _webhookUrl = context.Configs.GetOrDefault<WebhookConfig>().MuxarrUrl;
+            var notifications = context.Configs.GetOrDefault<List<NotificationConfig>>();
+            _notificationsOn = notifications.Count(n => n.Enabled);
+            _notificationsOff = notifications.Count - _notificationsOn;
+
+            var dbPath = context.Database.GetDbConnection().DataSource;
+            _dbSize = File.Exists(dbPath) ? new FileInfo(dbPath).Length.DisplayFileSize() : "";
+
+            var folders = new List<FolderRow> { Folder("Database", dbPath) };
+            folders.AddRange(profiles.SelectMany(p => p.Directories.Select(d => Folder($"Profile: {p.Name}", d))));
+            folders.AddRange(context.Configs.GetOrDefault<ProcessingConfig>().GetDonorFolders().Select(d => Folder("Copy subtitles donors", d)));
+            if (Log.FilePath != null)
+            {
+                folders.Add(Folder("Log file", Log.FilePath));
+            }
+
+            folders.Add(Folder("Temporary files", Path.GetTempPath()));
+            _folders = folders;
+        }
+
+        await CheckHealth();
+    }
+
+    private async Task CheckHealth()
+    {
+        _checking = true;
+        try
+        {
+            _health = await Health.CheckHealthAsync();
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+
+    private static FolderRow Folder(string name, string path)
+    {
+        var directory = File.Exists(path) ? Path.GetDirectoryName(path) ?? path : path;
+        if (!Directory.Exists(directory))
+        {
+            return new FolderRow(name, path, true, "");
+        }
+
+        try
+        {
+            var drive = new DriveInfo(directory);
+            return new FolderRow(name, path, false, $"{drive.AvailableFreeSpace.DisplayFileSize()} free");
+        }
+        catch (Exception)
+        {
+            return new FolderRow(name, path, false, "");
+        }
+    }
+}
