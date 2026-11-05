@@ -587,10 +587,15 @@
         try
         {
             var options = new EnumerationOptions { IgnoreInaccessible = true };
-            _browseFolders = Directory.EnumerateDirectories(folder, "*", options)
-                .Where(d => !Path.GetFileName(d).StartsWith('.'))
-                .Order(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var folders = Directory.EnumerateDirectories(folder, "*", options).Where(d => !Path.GetFileName(d).StartsWith('.'));
+            // In a donor root such as /mnt/pc, list only the disks that are plugged in (an unplugged disk's mount point is
+            // an empty folder on the root's own mount). Clicking the root again lists them again.
+            if (_roots.Contains(folder))
+            {
+                folders = Arrkit.Files.Mounts.WithDisk(folders);
+            }
+
+            _browseFolders = folders.Order(StringComparer.OrdinalIgnoreCase).ToList();
             _browseDonorCount = Directory.EnumerateFiles(folder, "*", options).Count(SubtitleFiles.IsDonor);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
