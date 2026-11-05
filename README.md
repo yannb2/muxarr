@@ -226,7 +226,7 @@ shared with Ripparr in [arrkit](https://github.com/yannb2/arrkit), a git submodu
 Clone with `--recurse-submodules`, or run `git submodule update --init` in an existing clone:
 
 ```sh
-git clone --recurse-submodules https://github.com/yannb2/muxarr
+git clone --recurse-submodules https://github.com/yannb2/remuxarr
 git -C arrkit pull origin main && git add arrkit   # newer arrkit, then commit
 ```
 
@@ -246,7 +246,7 @@ pull requests".
 ## Building and testing
 
 ```sh
-git clone --recurse-submodules https://github.com/yannb2/muxarr
+git clone --recurse-submodules https://github.com/yannb2/remuxarr
 dotnet build Muxarr.slnx
 dotnet test Muxarr.Tests
 ```

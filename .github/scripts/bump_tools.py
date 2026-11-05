@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = ROOT / "Muxarr.Web/Dockerfile"
 # Other files that repeat a pin as "NAME: 'value'" (a workflow env block), kept in step.
 ALSO_PINNED_IN = [".github/workflows/build-and-deploy.yml"]
-USER_AGENT = "Muxarr tool updates (+https://github.com/yannb2/muxarr)"
+USER_AGENT = "Remuxarr tool updates (+https://github.com/yannb2/remuxarr)"
 
 
 @dataclass

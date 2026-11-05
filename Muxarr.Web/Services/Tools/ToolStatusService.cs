@@ -156,7 +156,7 @@ public sealed class ToolStatusService(IConfiguration configuration, ILogger<Tool
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Remuxarr/{AppInfo.Version} (+https://github.com/yannb2/muxarr)");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Remuxarr/{AppInfo.Version} (+https://github.com/yannb2/remuxarr)");
         return client;
     }
 }

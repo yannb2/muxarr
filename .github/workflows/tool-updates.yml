@@ -28,7 +28,8 @@ env:
 
 jobs:
   bump:
-    if: github.repository == 'yannb2/muxarr'
+    # Not on forks. Both names, so the weekly run keeps going across the muxarr -> remuxarr repo rename.
+    if: contains(fromJSON('["yannb2/remuxarr", "yannb2/muxarr"]'), github.repository)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -61,7 +62,7 @@ jobs:
             echo
             cat summary.md
             echo
-            echo "Merge once the build is green, then pull \`ghcr.io/yannb2/muxarr:dev\` on the media VM."
+            echo "Merge once the build is green, then pull \`ghcr.io/yannb2/remuxarr:dev\` on the media VM."
             echo "A new FFmpeg release branch (9.0 to 9.1...) is worth a look at its release notes first."
           } > body.md
           existing=$(gh pr list --head "$BRANCH" --base master --state open --json number --jq '.[0].number // empty')
