@@ -68,6 +68,13 @@ public sealed class CopyRow
 {
     public required MediaFile Target { get; init; }
     public EpisodeKey? Key { get; init; }
+
+    /// <summary>A movie: donors are matched by title and year instead of episode.</summary>
+    public bool IsMovie { get; init; }
+
+    public string Label => Key?.Label ?? (IsMovie ? MovieLabel : "?");
+
+    private string MovieLabel => System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(Target.Path)) ?? "Movie";
     public List<Assignment> Assignments { get; } = [];
     public bool Include { get; set; } = true;
 
@@ -150,12 +157,24 @@ public static class SubtitleCopyEngine
             CueReader.IsPgs(track.Codec, donor.Path) || Arrkit.Subtitles.TrackSampler.IsPictures(track.Codec), donor.IsLoose);
     }
 
-    /// <summary>Gives each library file the donors with the same episode in their name.</summary>
+    /// <summary>Gives each library episode the donors with the same episode in their name, and a movie those named after it.</summary>
     public static void Match(IReadOnlyList<CopyRow> rows, IReadOnlyList<DonorFile> donors)
     {
         foreach (var row in rows)
         {
             row.Assignments.Clear();
+            if (row.IsMovie)
+            {
+                // A movie takes donors named after it: title, then year. Episodes never.
+                var folder = System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(row.Target.Path)) ?? "";
+                foreach (var donor in donors.Where(d => d.Key?.HasSeasonEpisode != true && MovieName.Matches(folder, d.Path)))
+                {
+                    row.Assignments.Add(new Assignment { Donor = donor });
+                }
+
+                continue;
+            }
+
             if (row.Key == null)
             {
                 continue;

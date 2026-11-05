@@ -371,4 +371,43 @@ public class SubtitleCopyTests
         Assert.AreEqual(2, rows[0].Assignments.Count);
         Assert.AreEqual(0, rows[1].Assignments.Count, "no match: the user picks one");
     }
+
+    [TestMethod]
+    [DataRow("Corpse Bride (2005)", "/d/Corpse.Bride.2005.1080p.BluRay.REMUX.AVC-GRP.mkv", true)]
+    [DataRow("Corpse Bride (2005)", "/d/Corpse Bride 2005.fr.srt", true)]
+    [DataRow("Corpse Bride (2005)", "/d/Corpse.Bride.2005.1080p.BluRay.REMUX-GRP/movie.mkv", true)]
+    [DataRow("Corpse Bride (2005)", "/d/Corpse.Bride.2015.1080p.mkv", false)]
+    [DataRow("Corpse Bride (2005)", "/d/The.Corpse.Bride.2005.mkv", false)]
+    [DataRow("Flow (2024)", "/d/Flowers.2024.mkv", false)]
+    [DataRow("Spider-Man - Into the Spider-Verse (2018)", "/d/Spider-Man.Into.the.Spider-Verse.2018.2160p.UHD.mkv", true)]
+    [DataRow("Spider-Man - Into the Spider-Verse (2018)", "/d/Spider-Man - Into the Spider-Verse (2018).en.srt", true)]
+    [DataRow("Amélie (2001)", "/d/Amelie.2001.1080p.mkv", true)]
+    [DataRow("2001 - A Space Odyssey (1968)", "/d/2001.A.Space.Odyssey.1968.UHD.mkv", true)]
+    [DataRow("2001 - A Space Odyssey (1968)", "/d/2001 - A Space Odyssey (1968) {edition-Remastered}.mkv", true)]
+    [DataRow("Akira (1988) {edition-Director's Cut}", "/d/Akira.1988.REMUX.mkv", true)]
+    public void MovieName_MatchesTitleAndYear(string folder, string donor, bool match)
+    {
+        Assert.AreEqual(match, MovieName.Matches(folder, donor));
+    }
+
+    [TestMethod]
+    public void Match_GivesAMovieTheDonorsNamedAfterIt()
+    {
+        var movie = Mkv(Video(0));
+        movie.Path = "/movies/animated/Corpse Bride (2005)/Corpse Bride (2005) [Bluray-1080p Remux].mkv";
+        var rows = new List<CopyRow> { new() { Target = movie, IsMovie = true } };
+        var donors = new List<DonorFile>
+        {
+            new() { Path = "/d/Corpse.Bride.2005.1080p.BluRay.REMUX-GRP.mkv" },
+            new() { Path = "/d/Corpse.Bride.2005.fr.srt" },
+            new() { Path = "/d/Flow.2024.mkv" },
+            new() { Path = "/d/Corpse.Bride.2005.S01E01.mkv", Key = EpisodeKey.Parse("/d/Corpse.Bride.2005.S01E01.mkv") }
+        };
+
+        SubtitleCopyEngine.Match(rows, donors);
+
+        CollectionAssert.AreEqual(new[] { "/d/Corpse.Bride.2005.1080p.BluRay.REMUX-GRP.mkv", "/d/Corpse.Bride.2005.fr.srt" },
+            rows[0].Assignments.Select(a => a.Donor.Path).ToArray());
+        Assert.AreEqual("Corpse Bride (2005)", rows[0].Label);
+    }
 }
