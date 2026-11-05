@@ -683,3 +683,22 @@
 .mux-collapsible[open] .mux-collapsible-chevron {
     transform: rotate(180deg);
 }
+
+/* ---- Logs page (Arrkit's LogView, shared with the sister apps, uses their sv- class names) ---- */
+
+.sv-log-message {
+    word-break: break-word;
+}
+
+.sv-log-exception {
+    white-space: pre-wrap;
+    max-height: 24rem;
+    overflow: auto;
+}
+
+@media (max-width: 767.98px) {
+    .sv-page-header {
+        flex-wrap: wrap !important;
+        gap: 0.5rem;
+    }
+}

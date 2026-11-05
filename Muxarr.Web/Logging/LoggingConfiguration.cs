@@ -1,4 +1,7 @@
 using System.Reflection;
+using Arrkit.Logging;
+using Microsoft.Data.Sqlite;
+using Muxarr.Data;
 using Serilog;
 using Serilog.Events;
 
@@ -14,8 +17,6 @@ public static class LoggingConfiguration
         var configuration = builder.Configuration;
         var projectName = GetProjectName();
 
-        var dbSink = new DbLogSink();
-
         var logConfig = new LoggerConfiguration()
             .Enrich.FromLogContext()
             .MinimumLevel.Information()
@@ -24,14 +25,22 @@ public static class LoggingConfiguration
             .MinimumLevel.Override("System", LogEventLevel.Warning)
             .Enrich.WithProperty("Environment", environment)
             .Enrich.WithProperty("Project", projectName)
-            .WriteTo.Console()
-            .WriteTo.Sink(dbSink);
+            .WriteTo.Console();
 
         Log.Logger = logConfig.CreateLogger();
         builder.Logging.AddSerilog(Log.Logger, true);
 
-        // Register the sink instance so LogWriterService can drain it
-        builder.Services.AddSingleton(dbSink);
+        // The Logs page (Arrkit's LogView, as in the sister apps): lines since start in memory, and the
+        // last Logs__KeepLines lines (default 2000) in <config>/logs/remuxarr.jsonl for the second tab.
+        var memoryLog = new MemoryLog();
+        memoryLog.KeepFile(Path.Combine(ConfigFolder(configuration), "logs", "remuxarr.jsonl"),
+            configuration.GetValue(MemoryLog.KeepLinesKey, MemoryLog.Capacity));
+        builder.Logging.AddProvider(new MemoryLoggerProvider(memoryLog));
+        // The same levels as the console.
+        builder.Logging.AddFilter<MemoryLoggerProvider>(null, LogLevel.Information);
+        builder.Logging.AddFilter<MemoryLoggerProvider>("Microsoft", LogLevel.Warning);
+        builder.Logging.AddFilter<MemoryLoggerProvider>("System", LogLevel.Warning);
+        builder.Services.AddSingleton(memoryLog);
 
         Log.Logger.Information("Initialized logger for {Project}", projectName);
 
@@ -56,6 +65,15 @@ public static class LoggingConfiguration
         {
             Log.CloseAndFlush();
         }
+    }
+
+    /// <summary>The folder the database is in (/config in the container), where logs/ goes too.</summary>
+    private static string ConfigFolder(IConfiguration configuration)
+    {
+        var connectionString = ContainerAppData.ResolveConnectionString(
+            configuration.GetConnectionString("DefaultConnection") ?? "Data Source=/config/muxarr.db");
+        var dataSource = new SqliteConnectionStringBuilder(connectionString).DataSource;
+        return Path.GetDirectoryName(Path.GetFullPath(dataSource)) ?? "/config";
     }
 
     public static string GetProjectName()

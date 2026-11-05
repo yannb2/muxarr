@@ -16,7 +16,6 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<MediaConversion> MediaConversions { get; set; }
     public DbSet<MediaInfo> MediaInfos { get; set; }
     public DbSet<Integration> Integrations { get; set; }
-    public DbSet<LogEntry> LogEntries { get; set; }
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)

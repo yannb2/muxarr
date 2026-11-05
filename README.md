@@ -190,6 +190,7 @@ MKV files only. Conversions queued from this page show what was added in their l
 | `PGID` | Group ID for file permissions | `888` |
 | `UMASK` | Permission mask for files Remuxarr writes, e.g. `002` for group-writable libraries | `022` |
 | `REMUXARR__AUTH__RESET` | `true` removes the login on the next start, if the password is lost. Remove it again afterwards | unset |
+| `Logs__KeepLines` | How many log lines the Logs page's "Last N lines" tab keeps across restarts (100 to 100000), in `/config/logs/remuxarr.jsonl` | `2000` |
 | `Remuxarr__Updates__Enabled` | `false` turns off the daily look for newer tool versions (Tools page) | `true` |
 
 | Path | Description |
@@ -202,6 +203,13 @@ MKV files only. Conversions queued from this page show what was added in their l
 Each Settings tab has its own address (`/settings/processing`, `/settings/status`...), as in the sister apps, so a
 tab can be bookmarked. **Status** shows the folders Remuxarr uses with their free space (a folder that is not mounted
 shows as missing), the mkvmerge / ffmpeg / dovi_tool / database checks, the integrations and what is in the database.
+
+### Logs
+
+The Logs page is the one every sister app has (arrkit's LogView): **Since start** and **Last N lines**,
+exact level filters and a search. Lines are kept in memory and in `/config/logs/remuxarr.jsonl`; `docker logs`
+still has everything. A conversion's own log stays on its page under Conversions. The old database log table
+is dropped on the first start of this version.
 
 ### API
 

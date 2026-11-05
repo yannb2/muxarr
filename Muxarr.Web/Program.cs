@@ -43,7 +43,6 @@ await builder.RunWithLoggingAsync(async b =>
     b.Services.AddScheduledService<ArrSyncService>();
     b.Services.AddScheduledService<MediaScannerService>();
     b.Services.AddScheduledService<WebhookService>();
-    b.Services.AddScheduledService<LogWriterService>();
     b.Services.AddHostedService<ScheduledServiceManager>();
 
     // Fork: tool versions against the newest upstream ones (Tools page).
