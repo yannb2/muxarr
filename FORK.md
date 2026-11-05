@@ -84,16 +84,19 @@ in the library get it the next time they are queued.
 
 ### Copy subtitles
 
-**Copy subtitles** in the menu adds subtitle tracks from other files to the episodes of a series, for
-a language the library copy lacks. The donors are files outside the library: another BD remux of the
+**Copy subtitles** in the menu adds subtitle tracks from other files to a movie or to the episodes of
+a series, for a language the library copy lacks. The donors are files outside the library: another BD remux of the
 same show, or loose `.srt`, `.ass`, `.ssa` and `.sup` files. They are read from the folders listed in
 Settings > Processing > **Copy subtitles: donor folders** (default `/downloads` and `/mnt/pc`, which
 have to be mounted in the container; read-only is enough).
 
-1. Pick the series in the library and a donor folder (its sub-folders are read too).
+1. Pick a series or a movie in the library (a folder with S01E02-style names is a series; the
+   All / Series / Movies buttons filter the list) and a donor folder (its sub-folders are read too).
 2. Episodes are matched by name: `S01E02` (also `S01E02E03` and `S01E02-E03`), `1x02`, or an anime's
-   absolute number (`Show - 012`). A row without a match gets a dropdown to pick a donor by hand, and
-   any row can take another donor or lose one.
+   absolute number (`Show - 012`). A movie takes the donors whose name, or folder name, starts with
+   its title and has its year (`Corpse.Bride.2005.1080p.BluRay.REMUX-GRP.mkv`, `Corpse Bride 2005.fr.srt`).
+   A row without a match gets a dropdown to pick a donor by hand, and any row can take another donor
+   or lose one.
 3. Tick the kinds of track to copy for the whole batch (language, forced, SDH, commentary, picture or
    text). Languages the series has no full subtitles in start ticked. A loose file's language and flags
    come from its name (`Show S01E02.fr.forced.srt`, `.en.sdh.srt`, `.French.srt`); they can be changed.
