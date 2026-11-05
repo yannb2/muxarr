@@ -235,7 +235,8 @@
                    @onchange="e => _editor.ReleaseLabel = e.Value?.ToString() ?? string.Empty"/>
             <small class="text-muted d-block">
                 Written to the @CustomConversionEditor.ReleaseLabelTag tag, as Ripparr does; Jellyfin shows it as
-                "Release: ..." through edition_tags.py. Empty removes the tag.
+                "Release: ..." through edition_tags.py. Empty removes the tag. A file still tagged
+                @CustomConversionEditor.OldReleaseLabelTag (before 1.1.2) moves to @CustomConversionEditor.ReleaseLabelTag when you change the box.
             </small>
         </div>
         <details class="mt-3" open="@_editor.TagsChanged">

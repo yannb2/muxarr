@@ -65,7 +65,7 @@ public class TrackChecksTests
     }
 
     [TestMethod]
-    public void TheReleaseLabelIsTheDistributedByTag()
+    public void TheReleaseLabelIsTheLabelTag()
     {
         var file = MakeFile("English", Video(0), Audio(1));
         file.Snapshot.ContainerType = "Matroska";
@@ -97,7 +97,26 @@ public class TrackChecksTests
         var kept = editor.Build().GlobalTags!;
         Assert.AreEqual("RELEASE_GROUP", kept.Single().Name);
 
+        // Typed again: the label goes to LABEL, the old DISTRIBUTED_BY stays gone.
         editor.ReleaseLabel = "Arrow Video";
-        Assert.AreEqual("Arrow Video", editor.Build().GlobalTags!.Single(t => t.Name == "DISTRIBUTED_BY").Value);
+        var tags = editor.Build().GlobalTags!;
+        Assert.AreEqual("Arrow Video", tags.Single(t => t.Name == "LABEL").Value);
+        Assert.IsFalse(tags.Any(t => t.Name == "DISTRIBUTED_BY"));
+    }
+
+    [TestMethod]
+    public void AnOldDistributedByLabelMovesToLabelOnEdit()
+    {
+        var file = MakeFile("English", Video(0), Audio(1));
+        file.Snapshot.ContainerType = "Matroska";
+        file.Snapshot.GlobalTags = [new FileTag { Name = "DISTRIBUTED_BY", Value = "Criterion" }];
+        var editor = new CustomConversionEditor(file);
+        Assert.AreEqual("Criterion", editor.ReleaseLabel, "shown from the old tag");
+
+        editor.ReleaseLabel = "Criterion";
+
+        var tags = editor.Build().GlobalTags!;
+        Assert.AreEqual("Criterion", tags.Single().Value);
+        Assert.AreEqual("LABEL", tags.Single().Name);
     }
 }
