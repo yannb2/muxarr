@@ -197,6 +197,12 @@ MKV files only. Conversions queued from this page show what was added in their l
 | `/config` | Database and settings |
 | your media folders | Any mount path works; use the same paths as Sonarr and Radarr so webhooks need no mapping |
 
+### Settings
+
+Each Settings tab has its own address (`/settings/processing`, `/settings/status`...), as in the sister apps, so a
+tab can be bookmarked. **Status** shows the folders Remuxarr uses with their free space (a folder that is not mounted
+shows as missing), the mkvmerge / ffmpeg / dovi_tool / database checks, the integrations and what is in the database.
+
 ### API
 
 The API is authenticated with the `X-Api-Key` header (Settings > API). `GET /api/stats` gives library
