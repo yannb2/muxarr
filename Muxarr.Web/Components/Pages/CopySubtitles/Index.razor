@@ -1,0 +1,949 @@
+@page "/copy-subtitles"
+@using Muxarr.Core.Config
+@using Muxarr.Core.SubtitleCopy
+@using Muxarr.Core.Utilities
+@using Muxarr.Web.Services.SubtitleCopy
+@implements IDisposable
+
+@* Fork: take subtitle tracks from other files (BD remuxes, loose .srt/.ass/.sup in /downloads or
+   /mnt/pc) and add them to a library series, episode by episode, through the normal queue. *@
+
+<PageTitle>@TitleHelper.GetTitle("Copy subtitles")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3 mux-page-header gap-2">
+        <h2 class="mb-0 me-auto"><i class="bi bi-badge-cc me-2"></i>Copy subtitles</h2>
+    </div>
+
+    <p class="text-body-secondary small">
+        Adds subtitle tracks from other files to the episodes of a series in the library. Episodes are matched by
+        their names (S01E02, 1x02 or an anime's absolute number); you can give any episode another donor by hand.
+        The timing check finds a shift (a different logo at the start) or a PAL speed-up, and each episode then goes
+        through the queue as a normal conversion: the profile names, orders and flags the new tracks with the others,
+        and the usual checks run before the original is replaced.
+    </p>
+
+    @* 1. Series *@
+    <div class="border rounded p-3 mb-3">
+        <h5 class="mb-2"><span class="badge text-bg-secondary me-2">1</span>Series in the library</h5>
+        @if (_series == null)
+        {
+            <span class="spinner-border spinner-border-sm"></span>
+        }
+        else if (_seriesFolder == null)
+        {
+            <input class="form-control form-control-sm mb-2" placeholder="Search a series folder" @bind="_seriesFilter" @bind:event="oninput"/>
+            <div class="list-group list-group-flush border rounded mux-copy-list">
+                @foreach (var folder in FilteredSeries().Take(40))
+                {
+                    <button class="list-group-item list-group-item-action py-1 small text-break" @onclick="() => PickSeries(folder.Path)">
+                        @folder.Path <span class="text-muted ms-1">(@folder.Count file@(folder.Count == 1 ? "" : "s"))</span>
+                    </button>
+                }
+                @if (!FilteredSeries().Any())
+                {
+                    <span class="list-group-item small text-muted">No folder matches.</span>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <code class="text-break">@_seriesFolder</code>
+                <span class="text-muted small">@_rows.Count episode@(_rows.Count == 1 ? "" : "s")</span>
+                <button class="btn btn-sm btn-link" @onclick="ClearSeries" disabled="@_busy">Change</button>
+            </div>
+        }
+    </div>
+
+    @* 2. Donor folder *@
+    <div class="border rounded p-3 mb-3">
+        <h5 class="mb-2"><span class="badge text-bg-secondary me-2">2</span>Donor folder</h5>
+        @if (_roots.Count == 0)
+        {
+            <span class="text-muted small">No donor folders are set. Add them in <a href="settings">Settings</a> &gt; Processing.</span>
+        }
+        else if (_donorFolder == null)
+        {
+            <div class="d-flex flex-wrap gap-1 mb-2">
+                @foreach (var root in _roots)
+                {
+                    <button class="btn btn-sm @(_browse == root ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Browse(root)">@root</button>
+                }
+            </div>
+            @if (_browse != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                    @if (_roots.All(r => r != _browse))
+                    {
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="BrowseUp"><i class="bi bi-arrow-up"></i></button>
+                    }
+                    <code class="text-break">@_browse</code>
+                    <button class="btn btn-sm btn-primary ms-auto" @onclick="UseFolder" disabled="@(_busy || _seriesFolder == null)"
+                            title="@(_seriesFolder == null ? "Pick the series first" : "")">
+                        <i class="bi bi-check2 me-1"></i>Use this folder
+                    </button>
+                </div>
+                @if (_browseError != null)
+                {
+                    <div class="text-danger small">@_browseError</div>
+                }
+                <div class="list-group list-group-flush border rounded mux-copy-list">
+                    @foreach (var sub in _browseFolders)
+                    {
+                        <button class="list-group-item list-group-item-action py-1 small text-break" @onclick="() => Browse(sub)">
+                            <i class="bi bi-folder me-1"></i>@Path.GetFileName(sub)
+                        </button>
+                    }
+                    @if (_browseFolders.Count == 0)
+                    {
+                        <span class="list-group-item small text-muted">No folders here.</span>
+                    }
+                </div>
+                <div class="text-muted small mt-1">@_browseDonorCount donor file@(_browseDonorCount == 1 ? "" : "s") directly in this folder (sub-folders are read too).</div>
+            }
+        }
+        else
+        {
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <code class="text-break">@_donorFolder</code>
+                <span class="text-muted small">@_donors.Count file@(_donors.Count == 1 ? "" : "s")</span>
+                <button class="btn btn-sm btn-link" @onclick="ClearDonors" disabled="@_busy">Change</button>
+            </div>
+        }
+        @if (_status != null)
+        {
+            <div class="small mt-2"><span class="spinner-border spinner-border-sm me-1"></span>@_status</div>
+        }
+    </div>
+
+    @if (_seriesFolder != null && _donorFolder != null && !_busyLoading)
+    {
+        @* 3. Tracks *@
+        <div class="border rounded p-3 mb-3">
+            <h5 class="mb-2"><span class="badge text-bg-secondary me-2">3</span>Tracks to copy</h5>
+            @if (_kinds.Count == 0)
+            {
+                <span class="text-muted small">The donor files have no subtitle tracks.</span>
+            }
+            else
+            {
+                <p class="text-muted small mb-2">Ticked for every episode. Languages the series has no subtitles in are ticked to start with.</p>
+                <table class="table table-sm align-middle mb-0">
+                    <tbody>
+                    @foreach (var (kind, count) in _kinds)
+                    {
+                        var loose = _looseKinds.Contains(kind);
+                        var final = _renamed.GetValueOrDefault(kind, kind);
+                        <tr>
+                            <td style="width: 1%;">
+                                <input type="checkbox" class="form-check-input" checked="@_wanted.Contains(kind)"
+                                       @onchange="e => ToggleKind(kind, e.Value is true)"/>
+                            </td>
+                            <td>
+                                @kind.Label
+                                <span class="text-muted small ms-1">in @count donor file@(count == 1 ? "" : "s")</span>
+                                @if (loose)
+                                {
+                                    <span class="badge text-bg-light border ms-1" title="Language and flags come from the file names">from file names</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (loose)
+                                {
+                                    <div class="d-inline-flex align-items-center gap-2 flex-wrap justify-content-end">
+                                        <select class="form-select form-select-sm w-auto" value="@final.LanguageCode"
+                                                @onchange="e => Rename(kind, final with { LanguageCode = e.Value?.ToString() ?? kind.LanguageCode })">
+                                            @if (IsoLanguage.Find(final.LanguageCode) == IsoLanguage.Unknown)
+                                            {
+                                                <option value="@final.LanguageCode">@final.LanguageCode</option>
+                                            }
+                                            @foreach (var language in Languages)
+                                            {
+                                                <option value="@language.Code">@language.Name</option>
+                                            }
+                                        </select>
+                                        <label class="small text-nowrap"><input type="checkbox" class="form-check-input me-1" checked="@final.Forced"
+                                                                              @onchange="e => Rename(kind, final with { Forced = e.Value is true })"/>Forced</label>
+                                        <label class="small text-nowrap"><input type="checkbox" class="form-check-input me-1" checked="@final.Sdh"
+                                                                              @onchange="e => Rename(kind, final with { Sdh = e.Value is true })"/>SDH</label>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        @* 4. Episodes *@
+        <div class="border rounded p-3 mb-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                <h5 class="mb-0 me-auto"><span class="badge text-bg-secondary me-2">4</span>Episodes</h5>
+                <button class="btn btn-sm btn-outline-primary" @onclick="CheckAll" disabled="@(_busy || _rows.All(r => r.Assignments.Count == 0))">
+                    <i class="bi bi-stopwatch me-1"></i>Check timing
+                </button>
+                @if (_busy && _checking)
+                {
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="StopCheck">Stop</button>
+                }
+                <button class="btn btn-sm btn-primary" @onclick="Queue" disabled="@(_busy || Queueable().Count == 0)">
+                    <i class="bi bi-play-fill me-1"></i>Queue @Queueable().Count episode@(Queueable().Count == 1 ? "" : "s")
+                </button>
+            </div>
+            <p class="text-muted small mb-2">
+                The last column is the dry run: the tracks each file gets, named as its profile names them.
+                Nothing is written until you queue.
+                @if (Unchecked() > 0)
+                {
+                    <span class="text-warning-emphasis">@Unchecked() donor@(Unchecked() == 1 ? " has" : "s have") no timing check yet.</span>
+                }
+            </p>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 mux-copy-table">
+                    <thead>
+                    <tr>
+                        <th style="width: 1%;"></th>
+                        <th>Episode</th>
+                        <th>Donor and timing</th>
+                        <th>Tracks added</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in _rows)
+                    {
+                        <tr class="@(row.Include ? "" : "text-muted")">
+                            <td class="align-top">
+                                <input type="checkbox" class="form-check-input" checked="@row.Include"
+                                       @onchange="e => { row.Include = e.Value is true; }"/>
+                            </td>
+                            <td class="align-top">
+                                <div class="fw-semibold">@(row.Key?.Label ?? "?")</div>
+                                <div class="small text-break">@Path.GetFileName(row.Target.Path)</div>
+                                <div class="small text-muted">@ChapterInfo.FormatTime(row.Target.Snapshot.DurationMs)</div>
+                            </td>
+                            <td class="align-top">
+                                @foreach (var assignment in row.Assignments)
+                                {
+                                    <div class="mb-2">
+                                        <div class="small text-break">
+                                            <i class="bi @(assignment.Donor.IsLoose ? "bi-file-text" : "bi-film") me-1 text-muted"></i>@assignment.Donor.Name
+                                            @if (!assignment.Donor.IsLoose)
+                                            {
+                                                <span class="text-muted ms-1">@ChapterInfo.FormatTime(assignment.Donor.DurationMs)</span>
+                                            }
+                                            <button class="btn btn-sm btn-link text-danger p-0 ms-1" title="Take this donor off" @onclick="() => Unassign(row, assignment)" disabled="@_busy">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 flex-wrap small">
+                                            <TimingBadge Assignment="assignment"/>
+                                            <label class="text-nowrap">Shift
+                                                <input class="form-control form-control-sm d-inline-block mux-copy-offset" value="@Seconds(assignment.OffsetMs)"
+                                                       @onchange="e => SetOffset(row, assignment, e.Value?.ToString())" disabled="@_busy"/> s
+                                            </label>
+                                            <select class="form-select form-select-sm w-auto" disabled="@_busy"
+                                                    value="@SubtitleTiming.Stretches.ToList().FindIndex(s => s.Numerator == assignment.Stretch.Numerator && s.Denominator == assignment.Stretch.Denominator)"
+                                                    @onchange="e => SetStretch(row, assignment, e.Value?.ToString())">
+                                                @for (var i = 0; i < SubtitleTiming.Stretches.Count; i++)
+                                                {
+                                                    <option value="@i">@(i == 0 ? "No stretch" : SubtitleTiming.Stretches[i].Label)</option>
+                                                }
+                                            </select>
+                                            <button class="btn btn-sm btn-outline-secondary py-0" @onclick="() => CheckOne(row, assignment)" disabled="@_busy">Check</button>
+                                            <button class="btn btn-sm btn-outline-secondary py-0" @onclick="() => Preview(row, assignment)" disabled="@(_busy || PreviewTrack(row, assignment) == null)"
+                                                    title="A minute of captions, side by side">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        </div>
+                                        @if (assignment.TimingNote != null)
+                                        {
+                                            <div class="small text-muted">@assignment.TimingNote</div>
+                                        }
+                                    </div>
+                                }
+                                <select @key="row.Assignments.Count" class="form-select form-select-sm mux-copy-assign" value="" disabled="@_busy"
+                                        @onchange="e => Assign(row, e.Value?.ToString())">
+                                    <option value="">@(row.Assignments.Count == 0 ? "No match: pick a donor..." : "Add another donor...")</option>
+                                    @foreach (var donor in _donors.OrderBy(d => DonorOrder(row, d)))
+                                    {
+                                        @if (row.Assignments.All(a => a.Donor != donor))
+                                        {
+                                            <option value="@donor.Path">@(donor.Key?.Label ?? "?") - @Relative(donor.Path)</option>
+                                        }
+                                    }
+                                </select>
+                            </td>
+                            <td class="align-top small">
+                                @if (row.Problem != null)
+                                {
+                                    <span class="text-muted">@row.Problem</span>
+                                }
+                                else if (row.Plan?.Donors is { } added)
+                                {
+                                    @foreach (var donor in added)
+                                    {
+                                        <div>
+                                            <i class="bi bi-plus-circle text-success me-1"></i>@(string.IsNullOrEmpty(donor.Output!.Name) ? "(no name)" : donor.Output.Name)
+                                            <span class="text-muted">@donor.Output.LanguageCode</span>
+                                            @if (donor.Output.IsDefault == true)
+                                            {
+                                                <span class="badge text-bg-light border">default</span>
+                                            }
+                                            @if (donor.Output.IsForced == true)
+                                            {
+                                                <span class="badge text-bg-light border">forced</span>
+                                            }
+                                            @if (donor.Output.IsHearingImpaired == true)
+                                            {
+                                                <span class="badge text-bg-light border">SDH</span>
+                                            }
+                                        </div>
+                                    }
+                                    @foreach (var left in row.Picked.Where(p => p.Donor.Output == null))
+                                    {
+                                        <div class="text-muted" title="The profile's language or duplicate rules leave it out">
+                                            <i class="bi bi-dash-circle me-1"></i>@KindLabel(left) left out by the profile
+                                        </div>
+                                    }
+                                    @if (row.Plan.Tracks.Count < row.Target.Snapshot.Tracks.Count)
+                                    {
+                                        <div class="text-warning-emphasis" title="The profile would also do this without the new tracks">
+                                            <i class="bi bi-info-circle me-1"></i>The profile also drops @(row.Target.Snapshot.Tracks.Count - row.Plan.Tracks.Count) of the file's own tracks.
+                                        </div>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Spare().Count > 0)
+            {
+                <details class="mt-3">
+                    <summary class="small">@Spare().Count donor file@(Spare().Count == 1 ? " is" : "s are") not given to any episode</summary>
+                    <ul class="small mb-0">
+                        @foreach (var donor in Spare())
+                        {
+                            <li class="text-break">@Relative(donor.Path)
+                                @if (donor.Error != null)
+                                {
+                                    <span class="text-danger ms-1">@donor.Error</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </details>
+            }
+        </div>
+
+        @if (_preview != null || _previewStatus != null || _previewError != null)
+        {
+            <div class="border rounded p-3 mb-3" id="copy-preview">
+                <div class="d-flex align-items-center mb-2">
+                    <h5 class="mb-0 me-auto"><i class="bi bi-eye me-2"></i>Side by side @_previewTitle</h5>
+                    <button class="btn btn-sm btn-link text-muted" @onclick="ClosePreview">Close</button>
+                </div>
+                @if (_previewStatus != null)
+                {
+                    <div class="small"><span class="spinner-border spinner-border-sm me-1"></span>@_previewStatus</div>
+                }
+                @if (_previewError != null)
+                {
+                    <div class="text-danger small">@_previewError</div>
+                }
+                @if (_preview != null)
+                {
+                    <p class="text-muted small mb-2">A minute from a third of the way in. Donor captions are shown at the time they will play
+                        (after the stretch and shift); lined-up captions share a row.</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th style="width: 90px;">At</th>
+                                <th>In the file</th>
+                                <th>From the donor</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var line in _preview)
+                            {
+                                <tr>
+                                    <td class="small text-nowrap">@ChapterInfo.FormatTime(line.AtMs)</td>
+                                    <td><CaptionCell Caption="line.Mine"/></td>
+                                    <td>
+                                        <CaptionCell Caption="line.Theirs"/>
+                                        @if (line.Mine != null && line.Theirs != null && line.Theirs.StartMs != line.Mine.StartMs)
+                                        {
+                                            <span class="small text-muted ms-1">@((line.Theirs.StartMs - line.Mine.StartMs) > 0 ? "+" : "")@(line.Theirs.StartMs - line.Mine.StartMs) ms</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (_preview.Count == 0)
+                            {
+                                <tr><td colspan="3" class="text-muted small">No captions in that minute.</td></tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .mux-copy-list { max-height: 260px; overflow-y: auto; }
+    .mux-copy-offset { width: 6.5rem; }
+    .mux-copy-assign { max-width: 32rem; }
+    .mux-copy-table td { min-width: 10rem; }
+</style>
+
+@code {
+    [Inject] public required IDbContextFactory<AppDbContext> ContextFactory { get; set; }
+    [Inject] public required MediaConverterService MediaConverter { get; set; }
+    [Inject] public required IToastService ToastService { get; set; }
+    [Inject] public required ILogger<Index> Logger { get; set; }
+
+    private sealed record SeriesFolder(string Path, int Count);
+
+    private List<SeriesFolder>? _series;
+    private string _seriesFilter = "";
+    private string? _seriesFolder;
+    private List<CopyRow> _rows = [];
+    private HashSet<string> _seriesLanguages = new(StringComparer.OrdinalIgnoreCase);
+
+    private List<string> _roots = [];
+    private string? _browse;
+    private List<string> _browseFolders = [];
+    private int _browseDonorCount;
+    private string? _browseError;
+    private string? _donorFolder;
+    private List<DonorFile> _donors = [];
+
+    private List<(TrackKind Kind, int Count)> _kinds = [];
+    private HashSet<TrackKind> _looseKinds = [];
+    private readonly HashSet<TrackKind> _wanted = [];
+    private readonly Dictionary<TrackKind, TrackKind> _renamed = [];
+
+    private bool _busy;
+    private bool _busyLoading;
+    private bool _checking;
+    private string? _status;
+    private CancellationTokenSource _cancel = new();
+    private CancellationTokenSource? _checkCancel;
+
+    private List<SubtitleCopyEngine.PreviewRow>? _preview;
+    private string? _previewStatus;
+    private string? _previewError;
+    private string? _previewTitle;
+
+    private static readonly List<(string Code, string Name)> Languages = IsoLanguage.Languages
+        .Where(l => l.WriteCode != null)
+        .Select(l => (l.WriteCode!, l.Name))
+        .DistinctBy(l => l.Item1)
+        .OrderBy(l => l.Name)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var context = await ContextFactory.CreateDbContextAsync();
+        _roots = context.Configs.GetOrDefault<ProcessingConfig>().GetDonorFolders()
+            .Where(Directory.Exists)
+            .ToList();
+        var paths = await context.MediaFiles.Select(f => f.Path).ToListAsync();
+        _series = paths
+            .Where(p => !PathFilter.IsExtra(p))
+            .Select(SeriesFolderOf)
+            .GroupBy(f => f)
+            .Select(g => new SeriesFolder(g.Key, g.Count()))
+            .OrderBy(f => f.Path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (_roots.Count == 1)
+        {
+            Browse(_roots[0]);
+        }
+    }
+
+    // A series folder holds season folders; an episode sits in one of them, or straight
+    // in the series folder when Sonarr has season folders off.
+    private static string SeriesFolderOf(string file)
+    {
+        var folder = Path.GetDirectoryName(file) ?? "/";
+        var name = Path.GetFileName(folder);
+        var seasonish = name.StartsWith("Season", StringComparison.OrdinalIgnoreCase)
+                        || name.StartsWith("Saison", StringComparison.OrdinalIgnoreCase)
+                        || name.Equals("Specials", StringComparison.OrdinalIgnoreCase)
+                        || name.StartsWith("S0", StringComparison.OrdinalIgnoreCase) && name.Length <= 4;
+        return seasonish ? Path.GetDirectoryName(folder) ?? folder : folder;
+    }
+
+    private IEnumerable<SeriesFolder> FilteredSeries() =>
+        (_series ?? []).Where(f => _seriesFilter.Length == 0 || f.Path.Contains(_seriesFilter, StringComparison.OrdinalIgnoreCase));
+
+    private async Task PickSeries(string folder)
+    {
+        await using var context = await ContextFactory.CreateDbContextAsync();
+        var prefix = folder.TrimEnd('/') + "/";
+        var files = await context.MediaFiles.WithTracksAndProfile()
+            .Where(f => f.Path.StartsWith(prefix))
+            .AsNoTracking()
+            .ToListAsync();
+        _rows = files
+            .Where(f => !PathFilter.IsExtra(f.Path) && SeriesFolderOf(f.Path) == folder)
+            .Select(f => new CopyRow { Target = f, Key = EpisodeKey.Parse(f.Path) })
+            .OrderBy(r => r.Key?.Season ?? int.MaxValue)
+            .ThenBy(r => r.Key?.Episodes.FirstOrDefault() ?? r.Key?.Absolute ?? int.MaxValue)
+            .ThenBy(r => r.Target.Path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        _seriesLanguages = _rows.SelectMany(r => r.Target.Snapshot.Tracks)
+            .Where(t => t.Type == MediaTrackType.Subtitles && !t.IsForced)
+            .Select(t => t.LanguageCode)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _seriesFolder = folder;
+        if (_donorFolder != null)
+        {
+            SubtitleCopyEngine.Match(_rows, _donors);
+            RefreshKinds(true);
+        }
+    }
+
+    private void ClearSeries()
+    {
+        _seriesFolder = null;
+        _rows = [];
+        ClosePreview();
+    }
+
+    private void Browse(string folder)
+    {
+        if (!InsideRoots(folder))
+        {
+            return;
+        }
+
+        _browse = folder;
+        _browseError = null;
+        try
+        {
+            var options = new EnumerationOptions { IgnoreInaccessible = true };
+            _browseFolders = Directory.EnumerateDirectories(folder, "*", options)
+                .Where(d => !Path.GetFileName(d).StartsWith('.'))
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _browseDonorCount = Directory.EnumerateFiles(folder, "*", options).Count(SubtitleFiles.IsDonor);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            _browseFolders = [];
+            _browseDonorCount = 0;
+            _browseError = e.Message;
+        }
+    }
+
+    private void BrowseUp()
+    {
+        if (_browse != null && Path.GetDirectoryName(_browse) is { } parent && InsideRoots(parent))
+        {
+            Browse(parent);
+        }
+    }
+
+    private bool InsideRoots(string folder) =>
+        _roots.Any(root => folder == root || folder.StartsWith(root.TrimEnd('/') + "/", StringComparison.Ordinal));
+
+    private async Task UseFolder()
+    {
+        if (_browse == null || !InsideRoots(_browse))
+        {
+            return;
+        }
+
+        _busy = true;
+        _busyLoading = true;
+        var folder = _browse;
+        try
+        {
+            _status = "Looking for donor files...";
+            await InvokeAsync(StateHasChanged);
+            var files = await Task.Run(() => SubtitleCopyEngine.FindDonorFiles(folder), _cancel.Token);
+            var donors = new List<DonorFile>();
+            for (var i = 0; i < files.Count; i++)
+            {
+                _status = $"Reading the tracks of {i + 1} of {files.Count}: {Path.GetFileName(files[i])}";
+                await InvokeAsync(StateHasChanged);
+                donors.Add(await SubtitleCopyEngine.ProbeAsync(files[i]));
+                _cancel.Token.ThrowIfCancellationRequested();
+            }
+
+            _donors = donors;
+            _donorFolder = folder;
+            SubtitleCopyEngine.Match(_rows, _donors);
+            RefreshKinds(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            ToastService.ShowError($"Could not read {folder}: {e.Message}");
+        }
+        finally
+        {
+            _busy = false;
+            _busyLoading = false;
+            _status = null;
+        }
+    }
+
+    private void ClearDonors()
+    {
+        _donorFolder = null;
+        _donors = [];
+        _kinds = [];
+        _wanted.Clear();
+        _renamed.Clear();
+        foreach (var row in _rows)
+        {
+            row.Assignments.Clear();
+            row.Plan = null;
+        }
+
+        ClosePreview();
+    }
+
+    // The kinds of track the donors have, and how many donors have each.
+    private void RefreshKinds(bool pickDefaults)
+    {
+        var seen = new Dictionary<TrackKind, HashSet<string>>();
+        var loose = new HashSet<TrackKind>();
+        foreach (var donor in _donors)
+        {
+            foreach (var track in donor.Subtitles)
+            {
+                var kind = SubtitleCopyEngine.KindOf(donor, track);
+                if (!seen.TryGetValue(kind, out var files))
+                {
+                    seen[kind] = files = [];
+                }
+
+                files.Add(donor.Path);
+                if (donor.IsLoose)
+                {
+                    loose.Add(kind);
+                }
+            }
+        }
+
+        _kinds = seen.Select(x => (x.Key, x.Value.Count))
+            .OrderBy(x => IsoLanguage.Find(x.Key.LanguageCode).Name)
+            .ThenBy(x => x.Key.Forced).ThenBy(x => x.Key.Sdh).ThenBy(x => x.Key.Commentary).ThenBy(x => x.Key.Pictures)
+            .ToList();
+        _looseKinds = loose;
+        if (pickDefaults)
+        {
+            _wanted.Clear();
+            foreach (var (kind, _) in _kinds.Where(k => !k.Kind.Commentary && !_seriesLanguages.Contains(k.Kind.LanguageCode)))
+            {
+                _wanted.Add(kind);
+            }
+        }
+
+        RefreshPlans();
+    }
+
+    private void ToggleKind(TrackKind kind, bool on)
+    {
+        if (on)
+        {
+            _wanted.Add(kind);
+        }
+        else
+        {
+            _wanted.Remove(kind);
+        }
+
+        RefreshPlans();
+    }
+
+    private void Rename(TrackKind kind, TrackKind to)
+    {
+        if (to == kind)
+        {
+            _renamed.Remove(kind);
+        }
+        else
+        {
+            _renamed[kind] = to;
+        }
+
+        RefreshPlans();
+    }
+
+    private void RefreshPlans()
+    {
+        foreach (var row in _rows)
+        {
+            SubtitleCopyEngine.Plan(row, _wanted, _renamed);
+        }
+    }
+
+    private void Assign(CopyRow row, string? path)
+    {
+        var donor = _donors.FirstOrDefault(d => d.Path == path);
+        if (donor == null)
+        {
+            return;
+        }
+
+        row.Assignments.Add(new Assignment { Donor = donor });
+        row.Include = true;
+        SubtitleCopyEngine.Plan(row, _wanted, _renamed);
+    }
+
+    private void Unassign(CopyRow row, Assignment assignment)
+    {
+        row.Assignments.Remove(assignment);
+        SubtitleCopyEngine.Plan(row, _wanted, _renamed);
+    }
+
+    // The donor dropdown lists the same episode first, then by name.
+    private static string DonorOrder(CopyRow row, DonorFile donor) =>
+        (row.Key != null && donor.Key != null && donor.Key.SameEpisode(row.Key) ? "0" : "1") + donor.Path;
+
+    private string Relative(string path) =>
+        _donorFolder != null && path.StartsWith(_donorFolder + "/", StringComparison.Ordinal) ? path[(_donorFolder.Length + 1)..] : path;
+
+    private List<DonorFile> Spare() =>
+        _donors.Where(d => _rows.All(r => r.Assignments.All(a => a.Donor != d))).ToList();
+
+    private int Unchecked() =>
+        _rows.Where(r => r.Include).SelectMany(r => r.Assignments).Count(a => a.Timing == null && !a.Manual);
+
+    private List<CopyRow> Queueable() =>
+        _rows.Where(r => r.Include && r.Plan?.Donors is { Count: > 0 }).ToList();
+
+    private static string Seconds(long ms) => (ms / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    private void SetOffset(CopyRow row, Assignment assignment, string? text)
+    {
+        if (double.TryParse((text ?? "").Replace(',', '.').Trim(), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var seconds))
+        {
+            assignment.OffsetMs = (long)Math.Round(seconds * 1000);
+            assignment.Manual = true;
+            SubtitleCopyEngine.Plan(row, _wanted, _renamed);
+        }
+    }
+
+    private void SetStretch(CopyRow row, Assignment assignment, string? value)
+    {
+        if (int.TryParse(value, out var i) && i >= 0 && i < SubtitleTiming.Stretches.Count)
+        {
+            assignment.Stretch = SubtitleTiming.Stretches[i];
+            assignment.Manual = true;
+            SubtitleCopyEngine.Plan(row, _wanted, _renamed);
+        }
+    }
+
+    private async Task CheckAll()
+    {
+        var work = _rows.Where(r => r.Include).SelectMany(r => r.Assignments.Select(a => (Row: r, Assignment: a))).ToList();
+        await RunChecks(work);
+    }
+
+    private Task CheckOne(CopyRow row, Assignment assignment)
+    {
+        assignment.Manual = false;
+        return RunChecks([(row, assignment)]);
+    }
+
+    private async Task RunChecks(List<(CopyRow Row, Assignment Assignment)> work)
+    {
+        _busy = true;
+        _checking = true;
+        _checkCancel = CancellationTokenSource.CreateLinkedTokenSource(_cancel.Token);
+        try
+        {
+            for (var i = 0; i < work.Count; i++)
+            {
+                var (row, assignment) = work[i];
+                if (assignment.Manual && work.Count > 1)
+                {
+                    continue;
+                }
+
+                _status = $"Checking the timing of {i + 1} of {work.Count}: {row.Key?.Label} from {assignment.Donor.Name}";
+                assignment.Checking = true;
+                await InvokeAsync(StateHasChanged);
+                try
+                {
+                    await SubtitleCopyEngine.CheckTimingAsync(row.Target, assignment, _checkCancel.Token);
+                }
+                catch (InvalidOperationException e)
+                {
+                    assignment.Timing = null;
+                    assignment.TimingNote = e.Message;
+                    Logger.LogWarning("Copy subtitles: timing check of {Donor} failed: {Error}", assignment.Donor.Path, e.Message);
+                }
+                finally
+                {
+                    assignment.Checking = false;
+                }
+
+                SubtitleCopyEngine.Plan(row, _wanted, _renamed);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopped: what was checked stays.
+        }
+        finally
+        {
+            _busy = false;
+            _checking = false;
+            _status = null;
+            _checkCancel?.Dispose();
+            _checkCancel = null;
+        }
+
+        if (!_cancel.IsCancellationRequested)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void StopCheck() => _checkCancel?.Cancel();
+
+    // The donor track the preview shows: the first picked one from that donor, else its first subtitle.
+    private TrackSnapshot? PreviewTrack(CopyRow row, Assignment assignment) =>
+        row.Picked.Where(p => p.From == assignment).Select(p => p.Track).FirstOrDefault()
+        ?? assignment.Donor.Subtitles.FirstOrDefault();
+
+    private async Task Preview(CopyRow row, Assignment assignment)
+    {
+        var track = PreviewTrack(row, assignment);
+        if (track == null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _preview = null;
+        _previewError = null;
+        _previewTitle = $"{row.Key?.Label}: track {track.Index} of {assignment.Donor.Name}";
+        _previewStatus = "Reading a minute of both files...";
+        await InvokeAsync(StateHasChanged);
+        var folder = Path.Combine(Path.GetTempPath(), "muxarr-copy-preview", Guid.NewGuid().ToString("N"));
+        try
+        {
+            _preview = await SubtitleCopyEngine.PreviewAsync(row.Target, assignment, track, folder, _cancel.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception e) when (e is InvalidOperationException or IOException or InvalidDataException)
+        {
+            _previewError = e.Message;
+        }
+        finally
+        {
+            _busy = false;
+            _previewStatus = null;
+            try
+            {
+                if (Directory.Exists(folder))
+                {
+                    Directory.Delete(folder, true);
+                }
+            }
+            catch (IOException)
+            {
+                // Temp files: left for the OS.
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ClosePreview()
+    {
+        _preview = null;
+        _previewError = null;
+        _previewStatus = null;
+    }
+
+    private static string KindLabel((DonorTrack Donor, TrackSnapshot Track, Assignment From) picked) =>
+        $"Track {picked.Track.Index} ({(string.IsNullOrEmpty(picked.Track.LanguageName) ? picked.Donor.LanguageCode ?? picked.Track.LanguageCode : picked.Track.LanguageName)})";
+
+    private async Task Queue()
+    {
+        RefreshPlans();
+        var items = Queueable()
+            .Select(r => (File: r.Target, Donors: r.Plan!.Donors!.Select(d => new DonorTrack
+            {
+                Path = d.Path,
+                TrackId = d.TrackId,
+                OffsetMs = d.OffsetMs,
+                StretchNumerator = d.StretchNumerator,
+                StretchDenominator = d.StretchDenominator,
+                LanguageCode = d.LanguageCode,
+                IsForced = d.IsForced,
+                IsHearingImpaired = d.IsHearingImpaired,
+                Output = d.Output,
+                BeforeIndex = d.BeforeIndex
+            }).ToList()))
+            .ToList();
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var results = await MediaConverter.AddDonorBatchToQueue(items);
+            var queued = results.Values.Count(r => r == QueueResult.Queued);
+            if (queued > 0)
+            {
+                ToastService.ShowSuccess($"Added {queued} episode{(queued == 1 ? "" : "s")} to the conversion queue.");
+            }
+
+            var skipped = results.Where(r => r.Value != QueueResult.Queued).ToList();
+            if (skipped.Count > 0)
+            {
+                ToastService.ShowInfo($"{skipped.Count} skipped: " + string.Join(", ", skipped.GroupBy(s => s.Value).Select(g => $"{g.Count()} {Why(g.Key)}")) + ".");
+            }
+
+            foreach (var row in _rows.Where(r => results.GetValueOrDefault(r.Target.Id) == QueueResult.Queued))
+            {
+                row.Include = false;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string Why(QueueResult result) => result switch
+    {
+        QueueResult.FileMissing => "file missing",
+        QueueResult.NotInLibrary => "no longer in the library",
+        QueueResult.AlreadyQueued => "already in the queue",
+        QueueResult.Hardlinked => "hardlinked",
+        _ => result.ToString()
+    };
+
+    public void Dispose()
+    {
+        _cancel.Cancel();
+        _cancel.Dispose();
+    }
+}

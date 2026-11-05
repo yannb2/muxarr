@@ -1,0 +1,14 @@
+@using Muxarr.Web.Services.SubtitleCopy
+
+@if (Caption?.Picture is { } picture)
+{
+    <img src="@picture" alt="" style="max-height: 48px; max-width: 100%; background: #333; padding: 2px; border-radius: 3px;"/>
+}
+else if (Caption?.Text is { } text)
+{
+    <span class="small" style="white-space: pre-line;">@text</span>
+}
+
+@code {
+    [Parameter] public CueReader.Caption? Caption { get; set; }
+}

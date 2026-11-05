@@ -82,6 +82,16 @@
                 trailers and samples are always skipped.</small>
         </div>
 
+        <div class="mb-3">
+            <label for="donor-folders" class="form-label">Copy subtitles: donor folders</label>
+            <InputTextArea id="donor-folders" class="form-control font-monospace" rows="2"
+                           placeholder="/downloads&#10;/mnt/pc"
+                           @bind-Value="ProcessingConfig.DonorFolders"/>
+            <small class="form-text text-muted">One per line. The <a href="copy-subtitles">Copy subtitles</a> page
+                browses these folders for the files to take subtitles from. They must be mounted in the container;
+                read-only is enough, nothing is written there.</small>
+        </div>
+
         <div class="mb-3 form-check form-switch">
             <InputCheckbox id="scan-queue" class="form-check-input" @bind-Value="ProcessingConfig.QueueScannedFiles"/>
             <label for="scan-queue" class="form-check-label">Queue new files found by a scan</label>

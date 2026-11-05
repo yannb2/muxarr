@@ -82,6 +82,37 @@ A track that gives no SRT (Tesseract missing, no text) is logged and the file is
 setting were off. Custom conversions never add one. Reading a film takes a few minutes; files already
 in the library get it the next time they are queued.
 
+### Copy subtitles
+
+**Copy subtitles** in the menu adds subtitle tracks from other files to the episodes of a series, for
+a language the library copy lacks. The donors are files outside the library: another BD remux of the
+same show, or loose `.srt`, `.ass`, `.ssa` and `.sup` files. They are read from the folders listed in
+Settings > Processing > **Copy subtitles: donor folders** (default `/downloads` and `/mnt/pc`, which
+have to be mounted in the container; read-only is enough).
+
+1. Pick the series in the library and a donor folder (its sub-folders are read too).
+2. Episodes are matched by name: `S01E02` (also `S01E02E03` and `S01E02-E03`), `1x02`, or an anime's
+   absolute number (`Show - 012`). A row without a match gets a dropdown to pick a donor by hand, and
+   any row can take another donor or lose one.
+3. Tick the kinds of track to copy for the whole batch (language, forced, SDH, commentary, picture or
+   text). Languages the series has no full subtitles in start ticked. A loose file's language and flags
+   come from its name (`Show S01E02.fr.forced.srt`, `.en.sdh.srt`, `.French.srt`); they can be changed.
+4. **Check timing** finds, per donor, the stretch and the shift:
+   - the stretch comes from the two lengths: within 0.5 % is none (a different logo is a shift);
+     about 4 % is PAL 25 fps against 23.976 or 24 fps. Loose files have no length, so all three are tried;
+   - the shift lines up the caption start times of a subtitle track both files have (the same language
+     when there is one, read in eight 90 s windows with ffprobe), else the chapters;
+   - the badge says how many captions line up. "Weak" is normal when two languages are compared.
+     The shift and stretch can be set by hand, and the eye button shows a minute of captions of the file
+     and the donor side by side, the donor's at the time they will play.
+5. The last column is the dry run: the tracks each file gets, named and flagged by its profile as if it
+   already had them. **Queue** adds one normal conversion per episode. Right before it runs, the
+   donors are probed again and the profile runs again with them; mkvmerge reads each donor track as its
+   own input (`--sync` for the timing, `--sub-charset windows-1252` for an SRT that is not UTF-8), and
+   the usual output checks run before the original is replaced.
+
+MKV files only. Conversions queued from this page show what was added in their log.
+
 ## Shared code: arrkit
 
 The subtitle code behind Track checks (PGS reader, OCR, SDH cleaner, classifier, track sampler) is

@@ -26,6 +26,7 @@ public static class ConversionPlanExtensions
             GlobalTags = desired.GlobalTags != null && !FileTag.SameSet(source.GlobalTags, desired.GlobalTags)
                 ? desired.GlobalTags
                 : null,
+            Donors = desired.Donors is { Count: > 0 } ? desired.Donors : null,
             Tracks = new List<TrackPlan>(desired.Tracks.Count)
         };
 

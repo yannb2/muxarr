@@ -34,7 +34,8 @@ public static class ConversionPlanner
         var hasFieldChanges = ConversionPlanExtensions.HasChanges(delta);
 
         ConversionStrategy strategy;
-        if (hasStructuralChanges)
+        // A track copied in from another file is a new track: only a remux adds it.
+        if (hasStructuralChanges || delta.Donors?.Any(d => d.Output != null) == true)
         {
             strategy = ConversionStrategy.Remux;
         }

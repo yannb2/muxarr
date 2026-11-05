@@ -47,38 +47,72 @@ public class ConversionPlan : IMedia<TrackPlan>
     [System.Text.Json.Serialization.JsonIgnore]
     public List<AddedSubtitle>? AddedSubtitles { get; set; }
 
+    // Subtitle tracks taken from other files (the Copy subtitles page). Stored
+    // with the conversion; the converter rebuilds Output from the profile.
+    public List<DonorTrack>? Donors { get; set; }
+
+    // The extra inputs mkvmerge reads after the source, in file order: first
+    // the SRTs made during the conversion, then the donor tracks.
+    private List<(TrackPlan Plan, int BeforeIndex, string Order)> ExtraTracks()
+    {
+        var extras = new List<(TrackPlan, int, string)>();
+        var added = AddedSubtitles ?? [];
+        for (var n = 0; n < added.Count; n++)
+        {
+            extras.Add((added[n].ToTrackPlan(n + 1), added[n].BeforeIndex, $"{n + 1}:0"));
+        }
+
+        foreach (var donor in Donors ?? [])
+        {
+            if (donor.Output == null)
+            {
+                continue;
+            }
+
+            var number = extras.Count + 1;
+            extras.Add((donor.ToTrackPlan(number), donor.BeforeIndex, $"{number}:{donor.TrackId}"));
+        }
+
+        return extras;
+    }
+
     // The tracks the output should have, in order: the planned source tracks
     // with each added subtitle placed before the track it names. An added
-    // track has Index -n, n being its place in AddedSubtitles counted from 1,
-    // which is also the number of the file mkvmerge reads it from.
-    public List<TrackPlan> OutputTracks()
+    // track has Index -n, n being the number of the file mkvmerge reads it
+    // from (the source is file 0).
+    public List<TrackPlan> OutputTracks() => OrderedOutput().Select(x => x.Plan).ToList();
+
+    // mkvmerge's --track-order for OutputTracks: "file:track" per output track.
+    public List<string> TrackOrder() => OrderedOutput().Select(x => x.Order).ToList();
+
+    private List<(TrackPlan Plan, string Order)> OrderedOutput()
     {
-        var added = AddedSubtitles ?? [];
-        if (added.Count == 0)
+        var extras = ExtraTracks();
+        if (extras.Count == 0)
         {
-            return Tracks;
+            return Tracks.Select(t => (t, $"0:{t.Index}")).ToList();
         }
 
         var placed = new HashSet<int>();
-        var result = new List<TrackPlan>();
+        var result = new List<(TrackPlan, string)>();
         foreach (var track in Tracks)
         {
-            for (var n = 0; n < added.Count; n++)
+            for (var n = 0; n < extras.Count; n++)
             {
-                if (added[n].BeforeIndex == track.Index && placed.Add(n))
+                if (extras[n].BeforeIndex == track.Index && placed.Add(n))
                 {
-                    result.Add(added[n].ToTrackPlan(n + 1));
+                    result.Add((extras[n].Plan, extras[n].Order));
                 }
             }
 
-            result.Add(track);
+            result.Add((track, $"0:{track.Index}"));
         }
 
-        for (var n = 0; n < added.Count; n++)
+        for (var n = 0; n < extras.Count; n++)
         {
             if (placed.Add(n))
             {
-                result.Add(added[n].ToTrackPlan(n + 1));
+                result.Add((extras[n].Plan, extras[n].Order));
             }
         }
 
@@ -148,4 +182,62 @@ public class TrackPlan : IMediaTrack
     bool IMediaTrack.IsVisualImpaired => IsVisualImpaired ?? false;
     bool IMediaTrack.IsOriginal => IsOriginal ?? false;
     bool IMediaTrack.IsDub => IsDub ?? false;
+}
+
+// A subtitle track copied in from another file: an MKV (TrackId = its track
+// number there) or a loose .srt/.ass/.sup (TrackId 0). The donor's timestamps
+// are multiplied by StretchNumerator/StretchDenominator, then OffsetMs is
+// added, as mkvmerge's --sync does.
+public sealed class DonorTrack
+{
+    public string Path { get; set; } = string.Empty;
+    public int TrackId { get; set; }
+    public long OffsetMs { get; set; }
+    public long StretchNumerator { get; set; } = 1;
+    public long StretchDenominator { get; set; } = 1;
+
+    // What the user set on the page; null keeps what the donor says.
+    public string? LanguageCode { get; set; }
+    public bool? IsForced { get; set; }
+    public bool? IsHearingImpaired { get; set; }
+
+    // Filled when the plan is built from the profile: the name, language and
+    // flags the output track gets (all set, nothing inherited), and the source
+    // track it goes in front of (-1 = last). Null Output = the profile drops it.
+    public TrackPlan? Output { get; set; }
+    public int BeforeIndex { get; set; } = -1;
+
+    public bool IsStretched => StretchNumerator != StretchDenominator;
+
+    // mkvmerge's --sync value, or null when the timing is left as it is.
+    public string? SyncValue()
+    {
+        if (OffsetMs == 0 && !IsStretched)
+        {
+            return null;
+        }
+
+        return IsStretched
+            ? $"{OffsetMs},{StretchNumerator}/{StretchDenominator}"
+            : OffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    public TrackPlan ToTrackPlan(int fileNumber)
+    {
+        var output = Output ?? new TrackPlan();
+        return new TrackPlan
+        {
+            Index = -fileNumber,
+            Type = MediaTrackType.Subtitles,
+            Name = output.Name ?? string.Empty,
+            LanguageCode = output.LanguageCode ?? LanguageCode ?? "und",
+            IsDefault = output.IsDefault ?? false,
+            IsForced = output.IsForced ?? false,
+            IsHearingImpaired = output.IsHearingImpaired ?? false,
+            IsVisualImpaired = output.IsVisualImpaired ?? false,
+            IsCommentary = output.IsCommentary ?? false,
+            IsOriginal = output.IsOriginal ?? false,
+            NameLocked = true
+        };
+    }
 }

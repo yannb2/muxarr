@@ -150,7 +150,41 @@ public static class MkvMerge
                        + $" --sub-charset 0:UTF-8 \"{added.Path}\"";
         }
 
-        command += $" --track-order {string.Join(",", delta.OutputTracks().Select(t => t.Index < 0 ? $"{-t.Index}:0" : $"0:{t.Index}"))}";
+        // Subtitle tracks copied from other files, one input each (the same file
+        // may be read more than once), with only that one track taken from it.
+        foreach (var donor in delta.Donors ?? [])
+        {
+            if (donor.Output == null)
+            {
+                continue;
+            }
+
+            var plan = donor.ToTrackPlan(0);
+            var id = donor.TrackId;
+            command += " --no-video --no-audio --no-buttons --no-chapters --no-attachments --no-global-tags --no-track-tags"
+                       + $" --subtitle-tracks {id}"
+                       + $" --track-name {id}:{MkvToolNixHelper.EscapeValue(plan.Name ?? "")}"
+                       + $" --language {id}:{plan.LanguageCode}"
+                       + $" --default-track-flag {id}:{Bit(plan.IsDefault)}"
+                       + $" --forced-display-flag {id}:{Bit(plan.IsForced)}"
+                       + $" --hearing-impaired-flag {id}:{Bit(plan.IsHearingImpaired)}"
+                       + $" --visual-impaired-flag {id}:{Bit(plan.IsVisualImpaired)}"
+                       + $" --commentary-flag {id}:{Bit(plan.IsCommentary)}"
+                       + $" --original-flag {id}:{Bit(plan.IsOriginal)}";
+            if (donor.SyncValue() is { } sync)
+            {
+                command += $" --sync {id}:{sync}";
+            }
+
+            if (SubtitleCopy.SubtitleFiles.CharsetFor(donor.Path) is { } charset)
+            {
+                command += $" --sub-charset {id}:{charset}";
+            }
+
+            command += $" \"{donor.Path}\"";
+        }
+
+        command += $" --track-order {string.Join(",", delta.TrackOrder())}";
 
         var lastProgress = 0;
         return await ProcessExecutor.ExecuteProcessAsync(MkvMergeExecutable, command, timeout,
@@ -170,6 +204,8 @@ public static class MkvMerge
             onProgress?.Invoke(line, lastProgress);
         }
     }
+
+    private static string Bit(bool? value) => value == true ? "1" : "0";
 
     public static void KillExistingProcesses()
     {
