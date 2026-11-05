@@ -59,6 +59,6 @@ public class WebHookController(
     [Route("~/api/webhook")]
     public IActionResult Get()
     {
-        return Ok("Muxarr webhook endpoint is active.");
+        return Ok("Remuxarr webhook endpoint is active.");
     }
 }

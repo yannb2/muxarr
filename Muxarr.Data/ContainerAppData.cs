@@ -62,9 +62,8 @@ public static class ContainerAppData
         }
 
         logger?.LogWarning(
-            "Muxarr now stores its database in {ConfigDir} but this install runs from {DataDir}. " +
-            "Mount your appdata folder at {ConfigDir} instead; nothing is moved automatically. " +
-            "See https://muxarr.app/docs/faq.html#appdata",
+            "Remuxarr now stores its database in {ConfigDir} but this install runs from {DataDir}. " +
+            "Mount your appdata folder at {ConfigDir} instead; nothing is moved automatically.",
             configDir, dataDir, configDir);
         State = AppDataState.LegacyLocation;
         builder.DataSource = legacyDbPath;

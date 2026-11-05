@@ -25,7 +25,7 @@ public sealed class ToolStatusService(IConfiguration configuration, ILogger<Tool
 {
     private static readonly HttpClient Http = CreateClient();
     private readonly UpdateCheckOptions _options =
-        configuration.GetSection("Muxarr:Updates").Get<UpdateCheckOptions>() ?? new UpdateCheckOptions();
+        (configuration.GetSection("Remuxarr:Updates").Exists() ? configuration.GetSection("Remuxarr:Updates") : configuration.GetSection("Muxarr:Updates")).Get<UpdateCheckOptions>() ?? new UpdateCheckOptions();
     private readonly SemaphoreSlim _checkNow = new(0);
 
     public IReadOnlyList<ToolStatus> Statuses { get; private set; } = [];
@@ -156,12 +156,12 @@ public sealed class ToolStatusService(IConfiguration configuration, ILogger<Tool
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Muxarr/{AppInfo.Version} (+https://github.com/yannb2/muxarr)");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Remuxarr/{AppInfo.Version} (+https://github.com/yannb2/muxarr)");
         return client;
     }
 }
 
-/// <summary><c>Muxarr__Updates__Enabled=false</c> turns the daily look upstream off.</summary>
+/// <summary><c>Remuxarr__Updates__Enabled=false</c> (or the old <c>Muxarr__Updates__Enabled</c>) turns the daily look upstream off.</summary>
 public sealed class UpdateCheckOptions
 {
     public bool Enabled { get; set; } = true;

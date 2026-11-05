@@ -1,18 +1,18 @@
 @using Muxarr.Core.Config
 @using Muxarr.Data.Entities
-<p class="text-muted">Connect Muxarr to Sonarr and Radarr to pull original language metadata and trigger automatic
+<p class="text-muted">Connect Remuxarr to Sonarr and Radarr to pull original language metadata and trigger automatic
     processing when new files are imported. After a conversion they rescan the file, and rename it when their naming
-    format has something in it that changed, like the audio codec or languages. Muxarr follows the new name.</p>
+    format has something in it that changed, like the audio codec or languages. Remuxarr follows the new name.</p>
 
 <EditForm Model="Services" OnValidSubmit="HandleSubmit">
     <DataAnnotationsValidator/>
 
     <div class="border rounded p-4 mb-4">
-        <h5 class="mb-3"><i class="bi bi-link-45deg me-2"></i>Muxarr URL</h5>
+        <h5 class="mb-3"><i class="bi bi-link-45deg me-2"></i>Remuxarr URL</h5>
         <div class="mb-0">
             <InputText class="form-control" @bind-Value="WebhookConfig.MuxarrUrl"/>
             <small class="form-text text-muted">
-                The URL that Sonarr/Radarr can reach Muxarr at. Example: <code>http://muxarr:8183</code>
+                The URL that Sonarr/Radarr can reach Remuxarr at. Example: <code>http://remuxarr:8183</code>
                 (Docker) or <code>http://x.x.x.x:8183</code> (LAN IP)
             </small>
         </div>
@@ -46,10 +46,10 @@
     <div class="border rounded p-4 mb-4">
         <h5 class="mb-3"><i class="bi bi-signpost-split me-2"></i>Path Mappings</h5>
         <p class="text-muted small">
-            Optional. Translate the paths Sonarr/Radarr report into the paths Muxarr sees, for when their
-            Docker volume mounts differ (e.g. Sonarr reports files under <code>/tv</code> but Muxarr mounts
+            Optional. Translate the paths Sonarr/Radarr report into the paths Remuxarr sees, for when their
+            Docker volume mounts differ (e.g. Sonarr reports files under <code>/tv</code> but Remuxarr mounts
             the same files at <code>/media</code>). Add one row per shared root. The destination must be a
-            path Muxarr can reach, so it should match one of your profile directories. The most specific
+            path Remuxarr can reach, so it should match one of your profile directories. The most specific
             match is used. Leave empty when every service mounts media at the same path.
         </p>
         @foreach (var mapping in PathMappingConfig.Mappings)
@@ -58,7 +58,7 @@
                 <span class="input-group-text">Sonarr/Radarr</span>
                 <input class="form-control" placeholder="/tv" @bind="mapping.From"/>
                 <span class="input-group-text"><i class="bi bi-arrow-right"></i></span>
-                <span class="input-group-text">Muxarr</span>
+                <span class="input-group-text">Remuxarr</span>
                 <input class="form-control" placeholder="/media" @bind="mapping.To"/>
                 <button type="button" class="btn btn-outline-danger"
                         @onclick="() => PathMappingConfig.Mappings.Remove(mapping)">
@@ -69,7 +69,7 @@
             {
                 <div class="form-text text-warning small mb-2">
                     <i class="bi bi-exclamation-triangle me-1"></i>
-                    No profile directory matches <code>@mapping.To</code>. Muxarr only processes files under
+                    No profile directory matches <code>@mapping.To</code>. Remuxarr only processes files under
                     directories it scans.
                 </div>
             }
@@ -123,7 +123,7 @@
         {
             if (string.IsNullOrWhiteSpace(WebhookConfig.MuxarrUrl))
             {
-                return "http://<muxarr-host>:8183/api/webhook";
+                return "http://<remuxarr-host>:8183/api/webhook";
             }
 
             var url = $"{WebhookConfig.MuxarrUrl.TrimEnd('/')}/api/webhook";

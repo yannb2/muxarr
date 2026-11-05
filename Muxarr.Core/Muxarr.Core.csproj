@@ -12,7 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <!-- Shared with Ripparr: subtitles (PGS, OCR, SDH, track sampling). A git submodule, see FORK.md. -->
+        <!-- Shared with Ripparr: subtitles (PGS, OCR, SDH, track sampling). A git submodule, see README.md. -->
         <ProjectReference Include="..\arrkit\src\Arrkit\Arrkit.csproj"/>
     </ItemGroup>
 

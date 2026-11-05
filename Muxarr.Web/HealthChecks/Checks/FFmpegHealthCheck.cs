@@ -38,7 +38,7 @@ public class FFmpegHealthCheck(ILogger<FFmpegHealthCheck> logger) : IHealthCheck
             if (major < MinMajor || (major == MinMajor && minor < MinMinor))
             {
                 return HealthCheckResult.Unhealthy(
-                    $"ffmpeg {major}.{minor} is too old; Muxarr requires >= {MinMajor}.{MinMinor}");
+                    $"ffmpeg {major}.{minor} is too old; Remuxarr requires >= {MinMajor}.{MinMinor}");
             }
 
             return HealthCheckResult.Healthy($"ffmpeg {major}.{minor}");

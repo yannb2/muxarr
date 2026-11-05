@@ -59,7 +59,7 @@ public static class Configurator
             context.Configs.Set<AuthConfig>(null, AuthConfig.Key);
             await context.SaveChangesAsync();
             logger?.LogWarning(
-                "Login removed because MUXARR__AUTH__RESET is set. Remove the variable and set a new password under Settings > Security.");
+                "Login removed because REMUXARR__AUTH__RESET is set. Remove the variable and set a new password under Settings > Security.");
         }
 
         // Ensure WebhookConfig has a persisted API key.

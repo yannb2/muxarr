@@ -15,9 +15,9 @@ public class WebhookConfig
     public bool AutoQueue { get; set; } = true;
 
     /// <summary>
-    /// The URL that Sonarr/Radarr can reach Muxarr at.
+    /// The URL that Sonarr/Radarr can reach Remuxarr at.
     /// Used for auto-registering the webhook in Sonarr/Radarr.
-    /// Example: http://muxarr:8183
+    /// Example: http://remuxarr:8183
     /// </summary>
     public string MuxarrUrl { get; set; } = string.Empty;
 

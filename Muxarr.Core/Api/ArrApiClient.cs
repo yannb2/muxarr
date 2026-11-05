@@ -156,7 +156,9 @@ public class ArrApiClient
         var notifications = await Get<List<ArrNotification>>(config, NotificationUrl);
         return notifications?.FirstOrDefault(n =>
             n.Implementation == "Webhook" &&
-            n.Name.Equals("Muxarr", StringComparison.OrdinalIgnoreCase));
+            (n.Name.Equals("Remuxarr", StringComparison.OrdinalIgnoreCase) ||
+             // the name before the rename, so an existing webhook is updated, not doubled
+             n.Name.Equals("Muxarr", StringComparison.OrdinalIgnoreCase)));
     }
 
     // Returns the arr's own error message when it refuses, null when the webhook is in place.

@@ -1,56 +1,63 @@
 <p align="center">
-  <img src="docs/logo.png" alt="Muxarr" width="120"/>
+  <img src="Muxarr.Web/wwwroot/favicon.svg" alt="Remuxarr" width="120"/>
 </p>
 
-<p align="center">
-  <a href="https://muxarr.app"><img src="https://img.shields.io/badge/website-muxarr.app-f97316?style=flat-square&labelColor=1f2229" alt="Website"/></a>
-  <a href="https://muxarr.app/docs/"><img src="https://img.shields.io/badge/docs-muxarr.app%2Fdocs-f97316?style=flat-square&logo=bookstack&logoColor=white&labelColor=1f2229" alt="Documentation"/></a>
-  <a href="https://github.com/KirovAir/muxarr/releases"><img src="https://img.shields.io/github/v/release/KirovAir/muxarr?include_prereleases&sort=semver&style=flat-square&label=version&color=f97316&labelColor=1f2229" alt="Latest release"/></a>
-  <a href="https://github.com/KirovAir/muxarr/actions/workflows/build-and-deploy.yml"><img src="https://img.shields.io/github/actions/workflow/status/KirovAir/muxarr/build-and-deploy.yml?branch=master&style=flat-square&label=build&labelColor=1f2229" alt="Build"/></a>
-  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/license-GPLv3-64748b?style=flat-square&labelColor=1f2229" alt="License: GPL v3"/></a>
-</p>
+# Remuxarr
 
-<p align="center">
-  <a href="https://github.com/KirovAir/muxarr/pkgs/container/muxarr"><img src="https://img.shields.io/badge/ghcr.io-kirovair%2Fmuxarr-2496ed?style=flat-square&logo=docker&logoColor=white&labelColor=1f2229" alt="Docker image"/></a>
-  <a href="https://github.com/KirovAir/muxarr/pkgs/container/muxarr"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2FKirovAir%2Fmuxarr%2Fmuxarr.json&query=%24.downloads&style=flat-square&label=pulls&logo=docker&logoColor=white&color=2496ed&labelColor=1f2229" alt="Docker pulls"/></a>
-  <a href="https://github.com/KirovAir/muxarr/stargazers"><img src="https://img.shields.io/github/stars/KirovAir/muxarr?style=flat-square&label=stars&color=64748b&labelColor=1f2229&logo=github&logoColor=white" alt="GitHub stars"/></a>
-</p>
+Remuxarr cleans up the audio and subtitle tracks of a media library: it removes the tracks you never use,
+orders them, sets the default and forced flags and writes consistent track names. It remuxes with
+**mkvmerge** (MKV) or **ffmpeg** stream copy (MP4), so nothing is re-encoded. It hooks into Sonarr and
+Radarr for the original language and converts new imports as they arrive.
 
-# Muxarr
+It is one of a set of homelab apps that share a look and code ([arrkit](https://github.com/yannb2/arrkit)):
+[Ripparr](https://github.com/yannb2/ripparr), [Specarr](https://github.com/yannb2/specarr),
+[Salvarr](https://github.com/yannb2/salvarr), [Scratcharr](https://github.com/yannb2/scratcharr) and
+[Spinarr](https://github.com/yannb2/spinarr).
 
-*Ever had your player pick the wrong audio language, or show 20 subtitle options you'll never use? Most media files ship with far more tracks than you need.*
+## Where it comes from
 
-Muxarr cleans them up by removing unwanted audio and subtitle tracks and standardizing track metadata. It uses **mkvmerge** for MKV files and **ffmpeg** with stream copy for other containers, so tracks are remuxed rather than re-encoded and there is zero quality loss. A 4GB file takes about a minute instead of hours, even on low-end hardware like a NAS or Raspberry Pi.
+Remuxarr started as a fork of [Muxarr](https://github.com/KirovAir/muxarr) by KirovAir and its
+contributors, and keeps their code under the same licence, GPL-3.0 (see [LICENSE](LICENSE.md)).
+It no longer follows Muxarr: it has its own name, image and version numbers (from 1.0.0), and the
+changes since the fork are in this repository's history. Thanks to the Muxarr authors for the base.
 
-**Hooks into Sonarr & Radarr** for original language detection and automatic processing - new imports get cleaned up as they arrive.
+Some names stay as they were so an existing install keeps working:
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KirovAir/muxarr/master/docs/screenshots/demo.gif" alt="Muxarr Demo" width="800"/><br/>
-  <em>A quick demo of a file being optimized (35.9% reduction)</em>
-</p>
+- the database is still `muxarr.db` in `/config`, and the per-folder track name backup is still the
+  hidden `.muxarr-tracks.json`;
+- `MUXARR__AUTH__RESET` and `Muxarr__Updates__Enabled` still work next to the new
+  `REMUXARR__AUTH__RESET` and `Remuxarr__Updates__Enabled`;
+- the webhook it adds to Sonarr and Radarr is now called "Remuxarr"; an old "Muxarr" one is found
+  and replaced, not doubled;
+- the .NET projects are still `Muxarr.Core`, `Muxarr.Data`, `Muxarr.Web` and `Muxarr.Tests`;
+- the port is still 8183.
 
-### Quick Start
+## Quick start
 
 ```yaml
 services:
-  muxarr:
-    image: ghcr.io/kirovair/muxarr:latest
-    container_name: muxarr
+  remuxarr:
+    image: ghcr.io/yannb2/remuxarr:dev
+    container_name: remuxarr
     environment:
-      - TZ=Europe/Amsterdam
+      - TZ=America/Toronto
       - PUID=1000
       - PGID=1000
     volumes:
       - /path/to/appdata:/config
-      - /path/to/media:/media
+      - /movies:/movies
+      - /tv:/tv
     ports:
       - 8183:8183
     restart: unless-stopped
 ```
 
-On Unraid, install Muxarr from the Apps tab.
+Every push to `master` builds `ghcr.io/yannb2/remuxarr:dev` (amd64 and arm64). A published GitHub
+release also tags `latest` and the version number. Docker Hub is skipped unless the
+`DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets are set.
 
-Upgrading from an older version? See [Upgrading](#upgrading-from-older-versions) before changing your mounts.
+Open `http://your-ip:8183`; the setup wizard sets a login (optional), connects Sonarr and Radarr
+(optional) and creates the first profile. Then scan, check the plan and queue.
 
 ## Features
 
@@ -65,143 +72,173 @@ Upgrading from an older version? See [Upgrading](#upgrading-from-older-versions)
 - **Safe by default** - validates the output file before replacing the original. If anything fails, the original is untouched.
 - **Library overview** - full breakdown of codecs, resolutions, and languages across your library
 
-Supports Matroska (`.mkv`, `.webm`) and MP4-family (`.mp4`, `.m4v`). Every setting is explained in the [profiles docs](https://muxarr.app/docs/profiles.html).
 
-<details>
-<summary>More screenshots</summary>
-<br/>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KirovAir/muxarr/master/docs/screenshots/before.png" alt="Before" width="600"/><br/>
-  ⬇️<br/>
-  <img src="https://raw.githubusercontent.com/KirovAir/muxarr/master/docs/screenshots/after.png" alt="After" width="600"/><br/>
-  <em>Before and after metadata cleanup</em>
-</p>
+Supports Matroska (`.mkv`, `.webm`) and MP4-family (`.mp4`, `.m4v`).
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KirovAir/muxarr/master/docs/screenshots/filedetails.png" alt="File Details" width="800"/><br/>
-  <em>File details with track preview</em>
-</p>
+### SDR only at 2160p
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KirovAir/muxarr/master/docs/screenshots/dashboard.png" alt="Dashboard" width="800"/><br/>
-  <em>Dashboard</em>
-</p>
+`{range}` in the video track name writes "SDR" only for 4K video (2160p and up). Below 4K every file is
+SDR, so nothing is written, the same rule as tag_release, Radarr's SDR custom format and Ripparr.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KirovAir/muxarr/master/docs/screenshots/settings.png" alt="Profile Settings" width="800"/><br/>
-  <em>Profile settings</em>
-</p>
+### Track descriptions
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KirovAir/muxarr/master/docs/screenshots/statistics.png" alt="Statistics" width="800"/><br/>
-  <em>Statistics</em>
-</p>
-</details>
+`{description}` in a track name template is the text that isn't from the template: the current name
+minus the part one of the profile's templates wrote (default or flag override), so a rerun never
+nests a name inside itself. The custom conversion has a Description box under each audio and
+subtitle name, the same as Ripparr's disc page:
 
-## Installation
+- What you type fills `{description}`, and the name below updates to what will be written.
+- A template without `{description}` puts the text in brackets at the end, and keeps it on later runs.
+- Text starting with `=` is the whole name, as typed.
+- A commentary with nothing typed gets "Commentary", unless its template already says it
+  (`{language} (Commentary) - {description} - {codec}`).
 
-### Docker Run
+### Track checks
 
-```bash
-docker run -d \
-  --name=muxarr \
-  -e TZ=Europe/Amsterdam \
-  -e PUID=1000 \
-  -e PGID=1000 \
-  -p 8183:8183 \
-  -v /path/to/appdata:/config \
-  -v /path/to/media:/media \
-  --restart unless-stopped \
-  ghcr.io/kirovair/muxarr:latest
-```
+A file's page has a Track checks card, taken from Ripparr:
 
-### Running without Docker
+- **Listen** plays 20 seconds of an audio track (from a third of the way in), as stereo AAC.
+- **Preview** shows up to 24 captions of a subtitle track: pictures for PGS, text for SRT and ASS.
+- **Check SDH and commentary** reads up to 120 captions (Tesseract OCR for PGS, in the track's
+  language) and says whether the track looks like SDH (sound descriptions, speaker labels, lyrics)
+  or a commentary. It only reports: the flags are still set in Custom conversion.
 
-Muxarr is a plain ASP.NET Core app, so it also runs in a Proxmox LXC, a VM or on a NAS without Docker. There are no prebuilt binaries, so build it yourself. The steps below assume Debian or Ubuntu and a user `media` that can write to your media files.
+Tick **Compare** on two or more PGS tracks and **Side by side** lines their captions up by time (from the
+same slices), as Ripparr's compare page does: handy to tell the forced track from the full one, or SDH from
+plain subtitles.
 
-1. Install `git`, the [.NET 10 SDK](https://dotnet.microsoft.com/download), `mkvtoolnix` and ffmpeg 8.1 or newer. Distro packages of ffmpeg are usually too old; take a static build from [BtbN](https://github.com/BtbN/FFmpeg-Builds/releases) like the Docker image does. `mkvmerge`, `mkvpropedit`, `ffmpeg` and `ffprobe` have to be on the `PATH`.
-2. Build it and create a folder for the database:
-   ```bash
-   git clone https://github.com/KirovAir/muxarr.git
-   cd muxarr
-   sudo install -d -o "$USER" /opt/muxarr
-   dotnet publish Muxarr.Web/Muxarr.Web.csproj -c Release -o /opt/muxarr
-   sudo install -d -o media -g media /var/lib/muxarr
-   ```
-3. Save this as `/etc/systemd/system/muxarr.service` and run `sudo systemctl enable --now muxarr`. The two variables set the database path (without it Muxarr uses `/config/muxarr.db`, the Docker default) and the port. The working directory matters: that is where it looks for `appsettings.json` and `wwwroot`.
-   ```ini
-   [Unit]
-   Description=Muxarr
-   After=network.target
+When the check disagrees with the track's flags, **Use this in Custom conversion** opens Custom
+conversion with those flags already set. A lossy stereo track after a multichannel one in the same
+language gets a **Commentary or AD?** hint (the file can't say which), with Commentary and AD buttons
+that do the same.
 
-   [Service]
-   User=media
-   WorkingDirectory=/opt/muxarr
-   Environment="ConnectionStrings__DefaultConnection=Data Source=/var/lib/muxarr/muxarr.db"
-   Environment="ASPNETCORE_HTTP_PORTS=8183"
-   ExecStart=/usr/bin/dotnet /opt/muxarr/Muxarr.Web.dll
-   Restart=on-failure
+Only 12 slices of 40 seconds, spread over the film past the titles and before the credits, are read
+with ffmpeg, so a 60 GB remux takes seconds, not a full read. VobSub and DVB picture subtitles are not
+read. The image ships Tesseract with English, French, German, Spanish and Italian.
 
-   [Install]
-   WantedBy=multi-user.target
-   ```
-4. Open `http://your-ip:8183` and continue with [Setup](#setup).
+### Release label and progress
 
-To update, `git pull`, publish again and `sudo systemctl restart muxarr`. Settings, history and logs all live in `/var/lib/muxarr`; stop the service before copying that folder, SQLite keeps recent writes in the `-wal` file next to the database.
+- Custom conversion has a **Release label** box (Criterion, Arrow...) that writes the `DISTRIBUTED_BY`
+  global tag, as Ripparr does; Jellyfin shows it as "Release: ..." through edition_tags.py.
+- A running conversion shows two bars, as in Ripparr: the current step (remux, check, swap, rescan...)
+  and the whole conversion.
+- The sidebar's Docs link opens this file, and the version links to the repository.
 
-### Upgrading from older versions
+### Checking the new file
 
-Older versions stored the database in `/data`. To upgrade an existing install, point your appdata volume at `/config` instead of `/data` and keep the same host path:
+Before the new file replaces the original, Remuxarr also checks (from Ripparr's verify step):
 
-```yaml
-    volumes:
-      - /path/to/appdata:/config  # was - /path/to/appdata:/data
-      - /path/to/media:/media     # keep media mounts exactly as they were
-```
+- chapters the plan keeps are still there (a failure: the original stays);
+- in MKV files, each track's name, language and default/forced/SDH/AD/commentary flags as planned (a
+  warning in the conversion log: the file plays, a player only shows or picks something else).
 
-Do not move your media mounts. Your profiles and Sonarr/Radarr path mappings reference the old container paths, so `/media` stays `/media`.
+### SRT without SDH
 
-Until you do, Muxarr keeps running from `/data` and shows a reminder in the app. Nothing is moved or deleted automatically, so rolling back to an older version only takes pointing the mount at `:/data` again. If your appdata folder is empty (you never mounted one, or you mounted `/config` on an older version that ignored it), the database sits in a Docker volume: stop the container, run `docker cp muxarr:/data/. /path/to/appdata/` before removing it, then mount that folder at `/config`.
+The profile's Subtitles section has **Add an SRT without SDH when a language only has SDH subtitles**
+(off by default, MKV only), as Ripparr has. When every full subtitle track (not forced, not commentary)
+the profile keeps in a language is SDH and one of them is PGS, the conversion:
+
+1. extracts that PGS track with mkvextract and reads every caption with Tesseract;
+2. takes the SDH text out ([door slams], JOHN:, ♪) and drops captions that were nothing else;
+3. muxes the SRT in with the remux, named and placed by running the profile on the file as if the SRT
+   were already there, so the next scan leaves it alone. If the profile would drop an SRT, none is made.
+
+A track that gives no SRT (Tesseract missing, no text) is logged and the file is converted as if the
+setting were off. Custom conversions never add one. Reading a film takes a few minutes; files already
+in the library get it the next time they are queued.
+
+### Copy subtitles
+
+**Copy subtitles** in the menu adds subtitle tracks from other files to a movie or to the episodes of
+a series, for a language the library copy lacks. The donors are files outside the library: another BD remux of the
+same show, or loose `.srt`, `.ass`, `.ssa` and `.sup` files. They are read from the folders listed in
+Settings > Processing > **Copy subtitles: donor folders** (default `/downloads` and `/mnt/pc`, which
+have to be mounted in the container; read-only is enough).
+
+1. Pick a series or a movie in the library (a folder with S01E02-style names is a series; the
+   All / Series / Movies buttons filter the list) and a donor folder (its sub-folders are read too).
+2. Episodes are matched by name: `S01E02` (also `S01E02E03` and `S01E02-E03`), `1x02`, or an anime's
+   absolute number (`Show - 012`). A movie takes the donors whose name, or folder name, starts with
+   its title and has its year (`Corpse.Bride.2005.1080p.BluRay.REMUX-GRP.mkv`, `Corpse Bride 2005.fr.srt`).
+   A row without a match gets a dropdown to pick a donor by hand, and any row can take another donor
+   or lose one.
+3. Tick the kinds of track to copy for the whole batch (language, forced, SDH, commentary, picture or
+   text). Languages the series has no full subtitles in start ticked. A loose file's language and flags
+   come from its name (`Show S01E02.fr.forced.srt`, `.en.sdh.srt`, `.French.srt`); they can be changed.
+4. **Check timing** finds, per donor, the stretch and the shift:
+   - the stretch comes from the two lengths: within 0.5 % is none (a different logo is a shift);
+     about 4 % is PAL 25 fps against 23.976 or 24 fps. Loose files have no length, so all three are tried;
+   - the shift lines up the caption start times of a subtitle track both files have (the same language
+     when there is one, read in eight 90 s windows with ffprobe), else the chapters;
+   - the badge says how many captions line up. "Weak" is normal when two languages are compared.
+     The shift and stretch can be set by hand, and the eye button shows a minute of captions of the file
+     and the donor side by side, the donor's at the time they will play.
+5. The last column is the dry run: the tracks each file gets, named and flagged by its profile as if it
+   already had them. **Queue** adds one normal conversion per episode. Right before it runs, the
+   donors are probed again and the profile runs again with them; mkvmerge reads each donor track as its
+   own input (`--sync` for the timing, `--sub-charset windows-1252` for an SRT that is not UTF-8), and
+   the usual output checks run before the original is replaced.
+
+MKV files only. Conversions queued from this page show what was added in their log.
 
 ## Configuration
-
-### Environment Variables
 
 | Variable | Description | Default |
 |---|---|---|
 | `TZ` | Timezone | `UTC` |
 | `PUID` | User ID for file permissions | `888` |
 | `PGID` | Group ID for file permissions | `888` |
-| `UMASK` | Permission mask for files Muxarr writes, e.g. `002` for group-writable libraries | `022` |
-| `MUXARR__AUTH__RESET` | Set to `true` to remove the login on the next start if you lost the password. Remove it again afterwards | unset |
-
-### Volumes
+| `UMASK` | Permission mask for files Remuxarr writes, e.g. `002` for group-writable libraries | `022` |
+| `REMUXARR__AUTH__RESET` | `true` removes the login on the next start, if the password is lost. Remove it again afterwards | unset |
+| `Remuxarr__Updates__Enabled` | `false` turns off the daily look for newer tool versions (Tools page) | `true` |
 
 | Path | Description |
 |---|---|
-| `/config` | Database and configuration |
-| `/media` | Media files (any mount path works, use multiple `-v` mounts as needed) |
-
-### Setup
-
-1. Open `http://your-ip:8183` - the setup wizard will guide you through
-2. Set a username and password (optional)
-3. Connect Sonarr/Radarr for original language detection and webhook automation (optional)
-4. Create a profile with your media directories and language rules
-5. Scan your library, preview the changes, and queue files for processing
+| `/config` | Database and settings |
+| your media folders | Any mount path works; use the same paths as Sonarr and Radarr so webhooks need no mapping |
 
 ### API
 
-Muxarr has a small API, authenticated with the `X-Api-Key` header. `GET /api/stats` gives library statistics for [Homepage](https://gethomepage.dev/widgets/services/customapi/) and other dashboards, `POST /api/queue` queues every file that needs work (so you can turn off auto-queue and convert from a cron job at night) and `GET /api/conversions` lists conversions so a script can follow them. See Settings > API for examples.
+The API is authenticated with the `X-Api-Key` header (Settings > API). `GET /api/stats` gives library
+statistics for [Homepage](https://gethomepage.dev/widgets/services/customapi/), `POST /api/queue` queues
+every file that needs work and `GET /api/conversions` lists conversions so a script can follow them.
 
-## Built With
+## Shared code: arrkit
 
-- [.NET 10](https://dotnet.microsoft.com/) / Blazor
-- [MKVToolNix](https://mkvtoolnix.download/) (mkvmerge, mkvpropedit)
-- [FFmpeg](https://ffmpeg.org/) (ffmpeg, ffprobe)
+The subtitle code behind Track checks (PGS reader, OCR, SDH cleaner, classifier, track sampler) is
+shared with Ripparr in [arrkit](https://github.com/yannb2/arrkit), a git submodule in `arrkit/`.
+Clone with `--recurse-submodules`, or run `git submodule update --init` in an existing clone:
 
-## License
+```sh
+git clone --recurse-submodules https://github.com/yannb2/muxarr
+git -C arrkit pull origin main && git add arrkit   # newer arrkit, then commit
+```
 
-GPL-3.0 - see [LICENSE](LICENSE.md).
+Its tests live in arrkit, not here.
 
-Muxarr is not affiliated with Sonarr, Radarr, or any other *arr projects.
+## Tools and updates
+
+The image pins FFmpeg (BtbN static build), MKVToolNix and dovi_tool with the `ARG` lines in
+`Muxarr.Web/Dockerfile`; the `env` block of `build-and-deploy.yml` repeats them for the tests and
+the image build args (a test checks they match). The **Tools** page (sidebar) shows what each
+tool reports, the pin and the newest upstream version, looked up once a day
+(`Remuxarr__Updates__Enabled=false` turns that off); Remuxarr never installs anything.
+Every Monday the "Tool updates" workflow opens a pull request bumping both files when something
+newer is out. It needs Settings > Actions > General > "Allow GitHub Actions to create and approve
+pull requests".
+
+## Building and testing
+
+```sh
+git clone --recurse-submodules https://github.com/yannb2/muxarr
+dotnet build Muxarr.slnx
+dotnet test Muxarr.Tests
+```
+
+The tests need `mkvmerge`, `mkvpropedit`, `ffmpeg` and `ffprobe` on the `PATH` (CI installs the pinned
+versions). New EF Core migrations go after the latest one in `Muxarr.Data/Migrations`.
+
+## Licence
+
+GPL-3.0, see [LICENSE](LICENSE.md). Based on [Muxarr](https://github.com/KirovAir/muxarr) by KirovAir.
+Remuxarr is not affiliated with Muxarr, Sonarr, Radarr or any other *arr project.

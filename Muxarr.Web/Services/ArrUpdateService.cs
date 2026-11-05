@@ -56,7 +56,7 @@ public class ArrUpdateService(ArrApiClient arrApi, ILogger<ArrUpdateService> log
             if (!File.Exists(newPath) || (!caseOnly && File.Exists(path)))
             {
                 conversion.Log(renamed
-                        ? $"{integration.Name} renamed the file to {rename.NewPath} but Muxarr cannot find it at {newPath}. Check the path mappings."
+                        ? $"{integration.Name} renamed the file to {rename.NewPath} but Remuxarr cannot find it at {newPath}. Check the path mappings."
                         : $"{integration.Name} did not finish renaming the file.",
                     logger, true);
                 return null;

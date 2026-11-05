@@ -22,9 +22,9 @@
 
     @if (_step == 1)
     {
-        <h4 class="mb-2">Welcome to Muxarr</h4>
+        <h4 class="mb-2">Welcome to Remuxarr</h4>
         <p class="text-muted small mb-4">
-            Muxarr automates audio and subtitle track management for your media library.
+            Remuxarr automates audio and subtitle track management for your media library.
             Let's get you set up. First, secure your instance with a username and password.
         </p>
 
@@ -54,17 +54,17 @@
     {
         <h4 class="mb-2">Connect Sonarr & Radarr</h4>
         <p class="text-muted small mb-4">
-            Optionally connect your Sonarr and Radarr instances. Muxarr uses these to automatically
+            Optionally connect your Sonarr and Radarr instances. Remuxarr uses these to automatically
             process files when imported or renamed, and to retrieve original language metadata for
             smarter track filtering. You can always configure this later in Settings.
         </p>
 
         <EditForm Model="_sonarrService" FormName="arr-setup">
             <div class="border rounded p-4 mb-4">
-                <h5 class="mb-3"><i class="bi bi-link-45deg me-2"></i>Muxarr URL</h5>
-                <input type="text" class="form-control" @bind="_muxarrUrl" placeholder="http://muxarr:8183"/>
+                <h5 class="mb-3"><i class="bi bi-link-45deg me-2"></i>Remuxarr URL</h5>
+                <input type="text" class="form-control" @bind="_muxarrUrl" placeholder="http://remuxarr:8183"/>
                 <small class="form-text text-muted">
-                    The URL that Sonarr/Radarr can reach Muxarr at. Example: <code>http://muxarr:8183</code> (Docker) or
+                    The URL that Sonarr/Radarr can reach Remuxarr at. Example: <code>http://remuxarr:8183</code> (Docker) or
                     <code>http://x.x.x.x:8183</code> (LAN IP)
                 </small>
             </div>
@@ -101,7 +101,7 @@
     {
         <h4 class="mb-2">You're all set!</h4>
         <p class="text-muted small mb-3">
-            Muxarr uses <strong>profiles</strong> to decide how to manage your media files.
+            Remuxarr uses <strong>profiles</strong> to decide how to manage your media files.
             A profile defines:
         </p>
         <ul class="text-muted small mb-3">
@@ -113,7 +113,7 @@
             <li><strong>Track name standardization</strong> — optionally rename tracks to a consistent format</li>
         </ul>
         <p class="text-muted small mb-4">
-            You'll be taken to the profile editor to create your first profile. After saving, Muxarr will scan your
+            You'll be taken to the profile editor to create your first profile. After saving, Remuxarr will scan your
             library and start managing tracks automatically.
         </p>
 
@@ -149,7 +149,7 @@
     {
         if (string.IsNullOrWhiteSpace(_muxarrUrl))
         {
-            return "http://<muxarr-host>:8183/api/webhook";
+            return "http://<remuxarr-host>:8183/api/webhook";
         }
 
         var url = $"{_muxarrUrl.TrimEnd('/')}/api/webhook";

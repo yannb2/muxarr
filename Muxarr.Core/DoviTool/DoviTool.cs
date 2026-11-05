@@ -63,7 +63,7 @@ public static class DoviTool
 
     // dovi_tool picks its demuxer from the file extension and reads anything
     // that isn't .mkv as a raw HEVC stream, which finds no RPU in a Matroska
-    // file. Muxarr's conversion output is "<name>.mkv.muxtmp" until the swap.
+    // file. Remuxarr's conversion output is "<name>.mkv.muxtmp" until the swap.
     public static bool HasMatroskaExtension(string file)
     {
         return string.Equals(Path.GetExtension(file), ".mkv", StringComparison.OrdinalIgnoreCase);
