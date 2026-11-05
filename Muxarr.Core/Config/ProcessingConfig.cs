@@ -20,6 +20,21 @@ public class ProcessingConfig
         return PathFilter.ParseExcludedFolders(ExcludedFolders);
     }
 
+    /// <summary>
+    /// Fork: the folders the Copy subtitles page may take donor files from, one per
+    /// line. They have to be mounted in the container (read-only is enough).
+    /// </summary>
+    public string DonorFolders { get; set; } = "/downloads\n/mnt/pc";
+
+    public List<string> GetDonorFolders()
+    {
+        return DonorFolders.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(line => !line.StartsWith('#'))
+            .Select(line => line.Length > 1 ? line.TrimEnd('/') : line)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
     public bool PostProcessingEnabled { get; set; }
     public string PostProcessingCommand { get; set; } = string.Empty;
 

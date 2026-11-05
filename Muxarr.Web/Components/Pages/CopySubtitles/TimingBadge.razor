@@ -1,0 +1,48 @@
+@using Muxarr.Core.SubtitleCopy
+@using Muxarr.Web.Services.SubtitleCopy
+
+@if (Assignment.Checking)
+{
+    <span class="badge text-bg-light border"><span class="spinner-border spinner-border-sm me-1"></span>checking</span>
+}
+else if (Assignment.Manual)
+{
+    <span class="badge text-bg-info" title="Set by hand">set by hand</span>
+}
+else if (Assignment.Timing is not { } timing)
+{
+    <span class="badge text-bg-light border text-muted">not checked</span>
+}
+else
+{
+    var share = $"{timing.Matched} of {timing.Compared} captions line up";
+    @switch (timing.Quality)
+    {
+        case SubtitleTiming.Quality.Good:
+            <span class="badge text-bg-success" title="@share">@Words(timing)</span>
+            break;
+        case SubtitleTiming.Quality.Weak:
+            <span class="badge text-bg-warning" title="@share">weak: @Words(timing)</span>
+            break;
+        default:
+            <span class="badge text-bg-danger" title="@share">no match</span>
+            break;
+    }
+}
+
+@code {
+    [Parameter] [EditorRequired] public required Assignment Assignment { get; set; }
+
+    private string Words(SubtitleTiming.Result timing)
+    {
+        var parts = new List<string>();
+        if (!Assignment.Stretch.IsNone)
+        {
+            parts.Add("stretched");
+        }
+
+        parts.Add(timing.OffsetMs == 0 ? "in sync" : $"shift {(timing.OffsetMs > 0 ? "+" : "")}{timing.OffsetMs / 1000.0:0.000} s");
+        parts.Add($"{timing.Share:P0}");
+        return string.Join(", ", parts);
+    }
+}

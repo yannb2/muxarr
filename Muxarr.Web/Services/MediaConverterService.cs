@@ -9,6 +9,7 @@ using Muxarr.Data;
 using Muxarr.Data.Entities;
 using Muxarr.Data.Extensions;
 using Muxarr.Web.Services.Scheduler;
+using Muxarr.Web.Services.SubtitleCopy;
 
 namespace Muxarr.Web.Services;
 
@@ -319,6 +320,71 @@ public class MediaConverterService(
         return results;
     }
 
+    /// <summary>
+    ///     Copy subtitles: queues one profile conversion per file, each carrying the
+    ///     donor tracks to add. The converter runs the profile again with them, so
+    ///     the plan here only has to name the donors.
+    /// </summary>
+    public async Task<Dictionary<int, QueueResult>> AddDonorBatchToQueue(
+        IReadOnlyList<(MediaFile File, List<DonorTrack> Donors)> items)
+    {
+        var results = new Dictionary<int, QueueResult>();
+        await MediaLibraryLocks.QueueMutation.WaitAsync();
+        try
+        {
+            using var scope = ServiceScopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            foreach (var (media, donors) in items.DistinctBy(x => x.File.Id))
+            {
+                if (!File.Exists(media.Path))
+                {
+                    results[media.Id] = QueueResult.FileMissing;
+                    continue;
+                }
+
+                if (!await context.MediaFiles.AnyAsync(x => x.Id == media.Id))
+                {
+                    results[media.Id] = QueueResult.NotInLibrary;
+                    continue;
+                }
+
+                if (await HasActiveConversion(context, media.Id))
+                {
+                    results[media.Id] = QueueResult.AlreadyQueued;
+                    continue;
+                }
+
+                context.Add(new MediaConversion
+                {
+                    MediaFileId = media.Id,
+                    SizeBefore = media.Size,
+                    ConversionPlan = new ConversionPlan
+                    {
+                        Tracks = media.Snapshot.Tracks.Select(t => t.ToTargetTrack(true)).ToList(),
+                        Donors = donors
+                    },
+                    BeforeSnapshotId = media.SnapshotId,
+                    State = ConversionState.New,
+                    Name = media.GetName()
+                });
+                results[media.Id] = QueueResult.Queued;
+            }
+
+            await context.SaveChangesAsync();
+        }
+        finally
+        {
+            MediaLibraryLocks.QueueMutation.Release();
+        }
+
+        if (results.Values.Any(r => r == QueueResult.Queued))
+        {
+            _ = RunAsync(CancellationToken.None);
+        }
+
+        return results;
+    }
+
     // Adds the conversion without saving so a batch can commit in one go.
     private async Task<QueueResult> TryEnqueueCustom(AppDbContext context, MediaFile media,
         ConversionPlan customTarget, List<Profile> profiles)
@@ -403,7 +469,35 @@ public class MediaConverterService(
             conversion.Log("Warning: source file has a ffprobe scan warning. Conversion might fail.", logger);
         }
 
-        if (!conversion.IsCustomConversion)
+        if (!conversion.IsCustomConversion && conversion.ConversionPlan.Donors is { Count: > 0 } donors)
+        {
+            // Copy subtitles: the donors are probed again (they may have moved or
+            // changed since the page queued them) and go through the profile with
+            // the file's own tracks.
+            var probed = await DonorProbe.ProbeAsync(donors);
+            if (probed.Error != null || conversion.MediaFile.Snapshot.ContainerType.ToContainerFamily() != ContainerFamily.Matroska)
+            {
+                conversion.Log(probed.Error ?? "Subtitles can only be copied into an MKV file.", logger, true);
+                conversion.State = ConversionState.Failed;
+                context.Update(conversion);
+                await context.SaveChangesAsync(token);
+                ConverterStateChanged?.Invoke(new ConverterProgressEvent(conversion));
+                return;
+            }
+
+            conversion.ConversionPlan = conversion.MediaFile.BuildTargetWithDonors(conversion.MediaFile.Profile, probed.Tracks);
+            foreach (var donor in donors.Where(d => d.Output == null))
+            {
+                conversion.Log($"The profile leaves out track {donor.TrackId} of {Path.GetFileName(donor.Path)}.", logger);
+            }
+
+            foreach (var donor in conversion.ConversionPlan.Donors ?? [])
+            {
+                conversion.Log($"Adding '{donor.Output!.Name}' ({donor.Output.LanguageCode}) from {Path.GetFileName(donor.Path)}, track {donor.TrackId}"
+                               + (donor.SyncValue() is { } sync ? $", timing {sync}" : ""), logger);
+            }
+        }
+        else if (!conversion.IsCustomConversion)
         {
             conversion.ConversionPlan = conversion.MediaFile.BuildTargetFromProfile(conversion.MediaFile.Profile);
         }
